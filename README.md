@@ -63,10 +63,10 @@ This lab demonstrates a realistic SOC (Security Operations Center) environment u
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        HOST MACHINE                             │
-│                    Ubuntu 24.04 LTS                             │
-│              (VirtualBox / VMware Hypervisor)                   │
+│                      Ubuntu 24.04 LTS                           │
+│                    (VMware Hypervisor)                          │
 └──────────────────────────┬──────────────────────────────────────┘
-                           │  NAT + Host-Only Network
+                           │  Host-Only Network
            ┌───────────────┼───────────────────────┐
            │               │                       │
     ┌──────▼──────┐  ┌──────▼──────┐       ┌───────▼──────┐
@@ -630,7 +630,6 @@ Enable automated blocking on brute force:
 - [Emerging Threats Rules](https://rules.emergingthreats.net)
 - [MITRE ATT&CK Framework](https://attack.mitre.org)
 - [DVWA Project](https://dvwa.co.uk)
-- [VirtualBox Networking](https://www.virtualbox.org/manual/ch06.html)
 
 ---
 
