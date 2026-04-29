@@ -8,33 +8,34 @@
 
 1. [Lab Overview](#lab-overview)
 2. [Architecture](#architecture)
-3. [Environment Setup](#environment-setup)
+3. [Repo Structure](#repo-structure)
+4. [Environment Setup](#environment-setup)
    - [Host Requirements](#host-requirements)
    - [VM Configuration](#vm-configuration)
    - [Network Setup](#network-setup)
-4. [Component Installation](#component-installation)
+5. [Component Installation](#component-installation)
    - [Wazuh All-in-One Deployment](#wazuh-all-in-one-deployment)
    - [Suricata (Network IDS)](#suricata-network-ids)
    - [Suricata → Wazuh Integration](#suricata--wazuh-integration)
    - [Wazuh Agent — Metasploitable2](#wazuh-agent--metasploitable2)
    - [Wazuh Agent — Windows 11](#wazuh-agent--windows-11)
-5. [Log Collection Configuration](#log-collection-configuration)
+6. [Log Collection Configuration](#log-collection-configuration)
    - [SSH Authentication Logs](#ssh-authentication-logs)
    - [FTP Logs](#ftp-logs)
    - [Apache / DVWA Logs](#apache--dvwa-logs)
    - [Windows Event Logs](#windows-event-logs)
    - [Suricata Alerts](#suricata-alerts)
-6. [Attack Scenarios](#attack-scenarios)
+7. [Attack Scenarios](#attack-scenarios)
    - [Nmap Port Scan](#nmap-port-scan)
    - [SSH Brute Force (Hydra)](#ssh-brute-force-hydra)
    - [FTP Brute Force](#ftp-brute-force)
    - [DVWA Attacks](#dvwa-attacks)
-7. [Detection Results](#detection-results)
-8. [Custom Detection Rules](#custom-detection-rules)
-9. [Troubleshooting](#troubleshooting)
-10. [Detection Improvements](#detection-improvements)
-11. [Screenshots](#screenshots)
-12. [References](#references)
+8. [Detection Results](#detection-results)
+9. [Custom Detection Rules](#custom-detection-rules)
+10. [Troubleshooting](#troubleshooting)
+11. [Detection Improvements](#detection-improvements)
+12. [Screenshots](#screenshots)
+13. [References](#references)
 
 ---
 
@@ -95,6 +96,67 @@ Data Flows:
   Suricata eve.json ──► Wazuh (local file monitoring)
   Wazuh Manager ──► OpenSearch Indexer (9200/TCP)
   Browser ──► Wazuh Dashboard (443/HTTPS)
+```
+
+---
+
+---
+
+## Repo Structure
+
+```
+soc-detection-lab/
+│
+├── README.md
+├── architecture/
+│   └── lab-diagram.png
+│
+├── screenshots/
+│   ├── wazuh/
+│   │   ├── dashboard-overview.png
+│   │   ├── agent-inventory.png
+│   │   └── alerts-view.png
+│   │
+│   ├── suricata/
+│   │   ├── eve-json-logs.png
+│   │   └── alert-detection.png
+│   │
+│   ├── attacks/
+│   │   ├── nmap-scan.png
+│   │   ├── ssh-bruteforce.png
+│   │   └── sqli-attack.png
+│   │
+│   └── windows/
+│       └── event-logs.png
+│
+├── configs/
+│   ├── wazuh/
+│   │   ├── ossec.conf
+│   │   └── local_rules.xml
+│   │
+│   ├── suricata/
+│   │   ├── suricata.yaml
+│   │   └── local.rules
+│   │
+│   └── agents/
+│       ├── linux-agent.conf
+│       └── windows-agent.conf
+│
+├── detection-rules/
+│   ├── ssh-bruteforce.xml
+│   ├── nmap-detection.xml
+│   └── web-attacks.xml
+│
+├── attack-scenarios/
+│   ├── nmap.md
+│   ├── ssh-bruteforce.md
+│   └── dvwa-sqli.md
+│
+└── docs/
+    ├── setup-guide.md
+    ├── troubleshooting.md
+    └── detection-improvements.md
+
 ```
 
 ---
