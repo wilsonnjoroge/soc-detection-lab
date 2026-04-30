@@ -5,7 +5,7 @@
 ---
 
 ## 📋 Table of Contents
-
+ 
 1. [Lab Overview](#lab-overview)
 2. [Architecture](#architecture)
 3. [Repo Structure](#repo-structure)
