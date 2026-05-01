@@ -1,0 +1,166 @@
+================================================================================
+PENTEST LAB SETUP NOTES - 30 APRIL 2026
+Host: GodsKitchen | OS: Ubuntu 24 | User: ranger
+================================================================================
+
+--------------------------------------------------------------------------------
+BACKGROUND - WHY METASPLOITABLE3
+--------------------------------------------------------------------------------
+- Was working with Metasploitable2 but hit issues with the Wazuh agent
+- Metasploitable2 is too old (32-bit, outdated services) to run modern agents
+- Decision made to move to Metasploitable3 which is 64-bit and more realistic
+- Metasploitable3 comes in two targets:
+    * ub1404  - Ubuntu 14.04 LTS (Linux target)
+    * win2k8  - Windows Server 2008 R2 (Windows target)
+
+--------------------------------------------------------------------------------
+TOOLS & ENVIRONMENT
+--------------------------------------------------------------------------------
+- Host OS        : Ubuntu 24.04
+- Hypervisor     : VMware Workstation (vmware_desktop provider)
+- Provisioner    : Vagrant 2.4.1
+- VM Directory   : /home/ranger/vms/
+- Existing VMs   : Kali, Windows-11, Wazuh-ubuntu, Ubuntu-26
+
+--------------------------------------------------------------------------------
+STEP 1 - VAGRANT SETUP
+--------------------------------------------------------------------------------
+- Vagrantfile created/edited at: /home/ranger/vms/Metasploitable3-Linux/
+- Old Vagrantfile backed up as: Vagrantfile.bak_30042026
+- Provider used: vmware_desktop
+
+Command used:
+  vagrant up --provider=vmware_desktop
+
+- ub1404 box: rapid7/metasploitable3-ub1404 (v0.1.12-weekly) - already cached
+- win2k8 box: rapid7/metasploitable3-win2k8 (v0.1.0-weekly)  - downloaded (~6-8GB)
+
+NOTE: VAGRANT_CHECKPOINT_DISABLE=1 needed to prevent checkpoint client hanging:
+  export VAGRANT_CHECKPOINT_DISABLE=1
+  echo 'export VAGRANT_CHECKPOINT_DISABLE=1' >> ~/.bashrc
+
+Both VMs booted successfully via Vagrant.
+
+--------------------------------------------------------------------------------
+STEP 2 - MOVING VMs TO PERMANENT LOCATION
+--------------------------------------------------------------------------------
+VMX/VMDK files found at:
+  /home/ranger/vms/Metasploitable3-Linux/.vagrant/machines/ub1404/vmware_desktop/eed15e81-be68-4830-9e51-bccc2fd4b285/
+  /home/ranger/vms/Metasploitable3-Linux/.vagrant/machines/win2k8/vmware_desktop/2af4e25a-55f4-4f1c-9df0-6579274dfaf9/
+
+Copied to permanent locations:
+  cp -r <ub1404_path> /home/ranger/vms/Metasploitable3-ub1404/
+  cp -r <win2k8_path> /home/ranger/vms/Metasploitable3-win2k8/
+
+win2k8 folder later renamed to:
+  mv Metasploitable3-win2k8 Metasploitable3-winServer2008
+
+--------------------------------------------------------------------------------
+STEP 3 - DISK SPACE CLEANUP
+--------------------------------------------------------------------------------
+Before cleanup: 96% used (9.2GB free) on /dev/nvme0n1p2 (234GB)
+
+Removed Vagrant project directory:
+  rm -rf /home/ranger/vms/Metasploitable3-Linux/
+
+Removed cached Vagrant boxes:
+  vagrant box remove rapid7/metasploitable3-ub1404
+  vagrant box remove rapid7/metasploitable3-win2k8
+
+After cleanup: 88% used (29GB free) — recovered ~20GB
+
+--------------------------------------------------------------------------------
+STEP 4 - FIXING VM PERMISSIONS
+--------------------------------------------------------------------------------
+Files were copied as root, VMware runs as ranger. Fixed with:
+  chown -R ranger:ranger /home/ranger/vms/*
+  chmod -R 755 /home/ranger/vms/*
+
+--------------------------------------------------------------------------------
+STEP 5 - FIXING VMDK LOCK FILES
+--------------------------------------------------------------------------------
+VMs were suspended (not cleanly shut down) so .lck files remained.
+Removed for both VMs:
+  rm -rf /home/ranger/vms/Metasploitable3-ub1404/*.lck
+  rm -rf /home/ranger/vms/Metasploitable3-ub1404/*.vmem.lck
+  rm -rf /home/ranger/vms/Metasploitable3-winServer2008/*.lck
+
+After removing locks, both VMs powered on successfully.
+
+--------------------------------------------------------------------------------
+STEP 6 - NETWORK CONFIGURATION
+--------------------------------------------------------------------------------
+Problem: Metasploitable3 ub1404 was on a different host-only network (172.16.63.0/24)
+         while Kali/Wazuh/Windows are on 192.168.172.0/24 (vmnet1)
+
+Fix: In VMware VM Settings → Network Adapter 1 → changed to Host-only (vmnet1)
+
+Result: ub1404 got IP 192.168.172.142 ✅
+
+Lab Network Map:
+  192.168.172.1    - Host (Ubuntu 24 / GodsKitchen)
+  192.168.172.142  - Metasploitable3-ub1404 (TARGET - Linux)
+  192.168.172.x    - Metasploitable3-winServer2008 (TARGET - Windows) [IP TBC]
+  192.168.172.x    - Kali (ATTACKER)
+  192.168.172.x    - Wazuh-ubuntu (SIEM)
+  192.168.172.x    - Windows-11
+
+--------------------------------------------------------------------------------
+STEP 7 - VM STATUS CONFIRMED WORKING
+--------------------------------------------------------------------------------
+
+METASPLOITABLE3 - ub1404:
+  OS       : Ubuntu 14.04 LTS
+  Kernel   : 3.13.0-24-generic (x86_64)
+  IP       : 192.168.172.142
+  Disk     : 39.1GB (LVM)
+  RAM      : 2GB
+  CPUs     : 2
+  Login    : vagrant / vagrant
+  Status   : ✅ Running
+
+METASPLOITABLE3 - winServer2008:
+  OS       : Windows Server 2008 R2 Standard (Build 7601)
+  Arch     : x86_64
+  IP       : TBC (ipconfig needed)
+  Disk     : 60GB
+  RAM      : 4GB
+  CPUs     : 2
+  Login    : vagrant / vagrant  |  Administrator / vagrant
+  Status   : ✅ Running (desktop visible)
+  Note     : License expired warning is expected/normal for lab box
+
+--------------------------------------------------------------------------------
+CURRENT VM DIRECTORY STRUCTURE
+--------------------------------------------------------------------------------
+/home/ranger/vms/
+├── Kali/
+├── Metasploitable3-ub1404/       ← Linux target
+├── Metasploitable3-winServer2008/ ← Windows target
+├── Ubuntu-26/
+├── Wazuh-ubuntu/
+└── Windows-11/
+
+--------------------------------------------------------------------------------
+PENDING / NEXT STEPS
+--------------------------------------------------------------------------------
+[ ] Install VMware Tools on winServer2008 (VM → Install VMware Tools) for fit screen
+[ ] Confirm winServer2008 IP is on 192.168.172.x
+[ ] Take clean snapshots of both Metasploitable3 VMs before any exploitation
+[ ] Test connectivity from Kali: ping 192.168.172.142 && nmap -sV 192.168.172.142
+[ ] Decide on Wazuh agent installation (install AFTER taking clean snapshots)
+[ ] Set up rsync backup (exclude vms/, sync configs/tools/scripts to remote)
+
+--------------------------------------------------------------------------------
+KNOWN ISSUES / NOTES
+--------------------------------------------------------------------------------
+- VMX warning about ethernet0.pcislotnumber="33" is cosmetic, safe to ignore
+- VAGRANT_CHECKPOINT_DISABLE=1 must be set or vagrant commands hang
+- Always remove .lck files before opening a moved/copied VM in VMware
+- When VMware asks "moved or copied?" after opening a VM → always select "I moved it"
+- winServer2008 secondary network adapter needs manual config (Vagrant limitation)
+- Both boxes are intentionally vulnerable, unpatched, unlicensed — that is by design
+
+================================================================================
+END OF NOTES
+================================================================================
