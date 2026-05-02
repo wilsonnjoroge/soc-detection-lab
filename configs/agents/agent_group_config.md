@@ -107,6 +107,8 @@ Wazuh groups are logical policy containers. Instead of configuring each agent ma
 ```bash
 sudo /var/ossec/bin/agent_groups -a -g linux-agents
 sudo /var/ossec/bin/agent_groups -a -g windows-agents
+
+# or via API / Agent Management: Groups→ Add new group
 ```
 
 **Step 2 — Find your agent IDs:**
@@ -129,7 +131,14 @@ sudo /var/ossec/bin/agent_groups -l -g linux-agents
 sudo /var/ossec/bin/agent_groups -l -g windows-agents
 ```
 
-**Step 5 — Restart agents to force sync:**
+**Step 5 — Remove agents from Default group (If  they were there):**
+```bash
+sudo /var/ossec/bin/agent_groups -r -i 001 -g default
+sudo /var/ossec/bin/agent_groups -r -i 002 -g default
+sudo /var/ossec/bin/agent_groups -r -i 003 -g default
+```
+
+**Step 6 — Restart agents to force sync:**
 
 Linux agents:
 ```bash
@@ -140,7 +149,7 @@ Windows agent:
 Services → Wazuh → Restart
 ```
 
-**Step 6 — Confirm sync in Dashboard:**
+**Step 7 — Confirm sync in Dashboard:**
 ```
 Agents → select agent → Configuration → verify group config is applied
 ```
