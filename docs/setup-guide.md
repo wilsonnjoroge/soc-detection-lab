@@ -225,10 +225,9 @@ Installed on the Wazuh VM to monitor lab network traffic.
 ### Step 1 — Install
 
 ```bash
-sudo add-apt-repository ppa:oisf/suricata-stable -y
 sudo apt update
 sudo apt install suricata -y
-suricata --build-info | grep Version
+suricata -V
 ```
 
 ### Step 2 — Update Rules
@@ -247,7 +246,7 @@ ip a
 ### Step 4 — Configure suricata.yaml
 
 ```bash
-sudo nano /etc/suricata/suricata.yaml
+sudo nano /etc/suricata/suricata.yaml 
 ```
 
 Key settings:
@@ -284,6 +283,8 @@ outputs:
 ### Step 5 — Start Suricata
 
 ```bash
+sudo suricata -T -c /etc/suricata/suricata.yaml -i ens37 # Check to see: Configuration provided was successfully loaded
+
 sudo systemctl enable suricata
 sudo systemctl start suricata
 sudo systemctl status suricata
@@ -292,7 +293,9 @@ sudo systemctl status suricata
 ### Step 6 — Verify Traffic Capture
 
 ```bash
+
 sudo tail -f /var/log/suricata/eve.json
+
 ```
 
 Generate test traffic from another VM — events should appear within seconds.
