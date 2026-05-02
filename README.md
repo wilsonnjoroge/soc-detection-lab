@@ -2,103 +2,89 @@
 
 > A virtualized cybersecurity home lab simulating a SOC environment with SIEM deployment, network intrusion detection, host-based monitoring, and attack simulation. Built for practical detection engineering and portfolio demonstration.
 
+[![Wazuh](https://img.shields.io/badge/SIEM-Wazuh_4.14.5-blue)](https://wazuh.com)
+[![Suricata](https://img.shields.io/badge/IDS-Suricata-orange)](https://suricata.io)
+[![Platform](https://img.shields.io/badge/Platform-VMware-lightgrey)](https://vmware.com)
+[![Status](https://img.shields.io/badge/Status-In_Progress-yellow)]()
+
 ---
 
 ## 📋 Table of Contents
- 
+
 1. [Lab Overview](#lab-overview)
 2. [Architecture](#architecture)
 3. [Repo Structure](#repo-structure)
-4. [Environment Setup](#environment-setup)
-   - [Host Requirements](#host-requirements)
-   - [VM Configuration](#vm-configuration)
-   - [Network Setup](#network-setup)
-5. [Component Installation](#component-installation)
-   - [Wazuh All-in-One Deployment](#wazuh-all-in-one-deployment)
-   - [Suricata (Network IDS)](#suricata-network-ids)
-   - [Suricata → Wazuh Integration](#suricata--wazuh-integration)
-   - [Wazuh Agent — Metasploitable2](#wazuh-agent--metasploitable2)
-   - [Wazuh Agent — Windows 11](#wazuh-agent--windows-11)
-6. [Log Collection Configuration](#log-collection-configuration)
-   - [SSH Authentication Logs](#ssh-authentication-logs)
-   - [FTP Logs](#ftp-logs)
-   - [Apache / DVWA Logs](#apache--dvwa-logs)
-   - [Windows Event Logs](#windows-event-logs)
-   - [Suricata Alerts](#suricata-alerts)
-7. [Attack Scenarios](#attack-scenarios)
-   - [Nmap Port Scan](#nmap-port-scan)
-   - [SSH Brute Force (Hydra)](#ssh-brute-force-hydra)
-   - [FTP Brute Force](#ftp-brute-force)
-   - [DVWA Attacks](#dvwa-attacks)
-8. [Detection Results](#detection-results)
-9. [Custom Detection Rules](#custom-detection-rules)
-10. [Troubleshooting](#troubleshooting)
-11. [Detection Improvements](#detection-improvements)
-12. [Screenshots](#screenshots)
-13. [References](#references)
+4. [Environment](#environment)
+5. [Component Status](#component-status)
+6. [Attack Scenarios](#attack-scenarios)
+7. [Detection Results](#detection-results)
+8. [MITRE ATT&CK Coverage](#mitre-attck-coverage)
+9. [Screenshots](#screenshots)
+10. [References](#references)
 
 ---
 
 ## Lab Overview
 
-This lab demonstrates a realistic SOC (Security Operations Center) environment using open-source tooling. It combines:
+This lab demonstrates a realistic SOC (Security Operations Center) environment using open-source tooling. It covers the full detection engineering lifecycle — from deploying a SIEM and configuring log ingestion, to simulating real attacks and validating alert generation.
 
 | Capability | Tool |
 |---|---|
-| SIEM | Wazuh (Manager + Indexer + Dashboard) |
+| SIEM | Wazuh 4.14.5 (Manager + Indexer + Dashboard + Filebeat) |
 | Network IDS | Suricata |
 | Host Monitoring | Wazuh Agents (Linux + Windows) |
-| Attack Simulation | Kali Linux |
-| Vulnerable Targets | Metasploitable2 (DVWA), Windows 11 |
+| Attacker | Kali Linux 2026.1 |
+| Target — Linux | Metasploitable3 Ubuntu (Ubuntu 14.04) |
+| Target — Windows | Windows 11 Pro + Windows Server 2008 |
+| Hypervisor Monitoring | Host Ubuntu 24.04.4 LTS (agent installed) |
 
 **Key objectives:**
-- Detect network-level attacks (Suricata: port scans, exploit signatures)
-- Detect host-level attacks (Wazuh: brute force, log anomalies)
-- Correlate network + host alerts in a single dashboard
-- Simulate realistic attacker TTPs (MITRE ATT&CK aligned)
+- Detect network-level attacks via Suricata (port scans, exploit signatures)
+- Detect host-level attacks via Wazuh (brute force, privilege escalation, persistence)
+- Correlate network and host alerts in a single dashboard
+- Simulate realistic attacker TTPs mapped to MITRE ATT&CK
+- Build and validate custom detection rules
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        HOST MACHINE                             │
-│                      Ubuntu 24.04 LTS                           │
-│                    (VMware Hypervisor)                          │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │  Host-Only Network
-           ┌───────────────┼───────────────────────┐
-           │               │                       │
-    ┌──────▼──────┐  ┌──────▼──────┐       ┌───────▼──────┐
-    │  ATTACKER   │  │  SIEM / IDS │       │   TARGETS    │
-    │             │  │             │       │              │
-    │ Kali Linux  │  │   Wazuh     │       │Metasploitable│
-    │             │  │  (Manager   │       │  2 (Linux)   │
-    │ Tools:      │  │  +Indexer   │       │  DVWA/Apache │
-    │ - Nmap      │  │  +Dashboard)│       │  FTP / SSH   │
-    │ - Hydra     │  │             │       │              │
-    │ - SQLMap    │  │  Suricata   │       ├──────────────┤
-    │ - DVWA      │  │  (Network   │       │  Windows 11  │
-    │   exploits  │  │   IDS)      │       │  (Event Logs)│
-    │             │  │             │       │              │
-    │192.168.56.x │  │192.168.56.10│       │192.168.56.20 │
-    └─────────────┘  └─────────────┘       │192.168.56.30 │
-                           │               └──────────────┘
-                     ┌─────▼──────┐
-                     │  Wazuh     │
-                     │ Dashboard  │
-                     │:5601 (Web) │
-                     └────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                          HOST MACHINE                               │
+│                    Ubuntu 24.04.4 LTS (VMware Workstation)          │
+│                         192.168.172.1                               │
+│                    [Wazuh Agent: host-ubuntu-agent]                 │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │  VMware Host-Only Network
+                                │  192.168.172.0/24
+          ┌─────────────────────┼──────────────────────────┐
+          │                     │                          │
+   ┌──────▼──────┐      ┌───────▼────────┐       ┌────────▼────────┐
+   │  ATTACKER   │      │   SIEM / IDS   │       │    TARGETS      │
+   │             │      │                │       │                 │
+   │ Kali Linux  │      │ Wazuh 4.14.5   │       │ Metasploitable3 │
+   │ 2026.1      │      │ Manager +      │       │ Ubuntu 14.04    │
+   │             │      │ Indexer +      │       │ 192.168.172.142 │
+   │ Nmap        │      │ Dashboard +    │       │                 │
+   │ Hydra       │      │ Filebeat       │       ├─────────────────┤
+   │ SQLMap      │      │                │       │  Windows 11 Pro │
+   │ Metasploit  │      │ Suricata IDS   │       │ 192.168.172.136 │
+   │             │      │ (eve.json)     │       │                 │
+   │.172.137     │      │  .172.140      │       ├─────────────────┤
+   └─────────────┘      └────────────────┘       │  Win Server2008 │
+                                │                │  IP: TBC        │
+                         ┌──────▼──────┐         │                 │
+                         │  Dashboard  │         └─────────────────┘
+                         │  :443/HTTPS │
+                         └─────────────┘
 
 Data Flows:
-  Agents ──► Wazuh Manager (1514/TCP)
-  Suricata eve.json ──► Wazuh (local file monitoring)
-  Wazuh Manager ──► OpenSearch Indexer (9200/TCP)
-  Browser ──► Wazuh Dashboard (443/HTTPS)
+  Wazuh Agents  ──► Manager (1514/TCP)
+  Suricata      ──► Wazuh via eve.json (local file monitor)
+  Manager       ──► OpenSearch Indexer (9200/TCP)
+  Browser       ──► Wazuh Dashboard (443/HTTPS)
 ```
-
----
 
 ---
 
@@ -116,16 +102,13 @@ soc-detection-lab/
 │   │   ├── dashboard-overview.png
 │   │   ├── agent-inventory.png
 │   │   └── alerts-view.png
-│   │
 │   ├── suricata/
 │   │   ├── eve-json-logs.png
 │   │   └── alert-detection.png
-│   │
 │   ├── attacks/
 │   │   ├── nmap-scan.png
 │   │   ├── ssh-bruteforce.png
 │   │   └── sqli-attack.png
-│   │
 │   └── windows/
 │       └── event-logs.png
 │
@@ -133,11 +116,9 @@ soc-detection-lab/
 │   ├── wazuh/
 │   │   ├── ossec.conf
 │   │   └── local_rules.xml
-│   │
 │   ├── suricata/
 │   │   ├── suricata.yaml
 │   │   └── local.rules
-│   │
 │   └── agents/
 │       ├── linux-agent.conf
 │       └── windows-agent.conf
@@ -156,552 +137,175 @@ soc-detection-lab/
     ├── setup-guide.md
     ├── troubleshooting.md
     └── detection-improvements.md
-
 ```
 
 ---
 
-## Environment Setup
+## Environment
 
-### Host Requirements
+### Host Machine
 
-| Component | Minimum | Recommended |
-|---|---|---|
-| RAM | 16 GB | 32 GB |
-| CPU | 4 cores | 8 cores |
-| Disk | 100 GB | 200 GB |
-| OS | Ubuntu 24.04 | Ubuntu 24.04 |
-
-### VM Configuration
-
-| VM | OS | RAM | Disk | Role |
-|---|---|---|---|---|
-| `wazuh-siem` | Ubuntu 22.04 LTS | 6 GB | 50 GB | Wazuh + Suricata |
-| `kali-attacker` | Kali Linux (latest) | 2 GB | 30 GB | Attacker |
-| `metasploitable2` | Metasploitable2 | 1 GB | 10 GB | Target (Linux) |
-| `win11-target` | Windows 11 | 4 GB | 40 GB | Target (Windows) |
-
-### Network Setup
-
-All VMs are connected to a **Host-Only Network** (e.g., `192.168.56.0/24`) for isolation plus internet access via NAT adapter.
-
-| VM | IP Address |
+| Component | Detail |
 |---|---|
-| Wazuh/Suricata | `192.168.56.10` |
-| Kali Linux | `192.168.56.5` |
-| Metasploitable2 | `192.168.56.20` |
-| Windows 11 | `192.168.56.30` |
+| OS | Ubuntu 24.04.4 LTS |
+| Hypervisor | VMware Workstation |
+| Network | VMware Host-Only (192.168.172.0/24) |
+| Wazuh Agent | host-ubuntu-agent (ID: 005) |
 
-**VirtualBox setup:**
-```bash
-# Create Host-Only Network in VirtualBox
-# File → Host Network Manager → Create
-# Set: 192.168.56.1 / 255.255.255.0
-# DHCP: Disabled (use static IPs)
-```
+### Virtual Machines
 
-Each VM needs **two network adapters**:
-- Adapter 1: NAT (for internet/package downloads)
-- Adapter 2: Host-Only (`vboxnet0`) (for lab traffic)
-
----
-
-## Component Installation
-
-### Wazuh All-in-One Deployment
-
-Wazuh is deployed as an all-in-one instance (Manager + Indexer + Dashboard) on the `wazuh-siem` VM.
-
-```bash
-# Update system
-sudo apt update && sudo apt upgrade -y
-
-# Download and run Wazuh installer
-curl -sO https://packages.wazuh.com/4.x/wazuh-install.sh
-curl -sO https://packages.wazuh.com/4.x/config.yml
-
-# Edit config.yml — set node IPs to your Wazuh VM IP
-# nodes.indexer.ip: 192.168.56.10
-# nodes.server.ip: 192.168.56.10
-# nodes.dashboard.ip: 192.168.56.10
-
-sudo bash wazuh-install.sh -a
-```
-
-> **Note:** Save the auto-generated admin credentials shown at the end of installation.
-
-Access dashboard: `https://192.168.56.10` (default user: `admin`)
+| ID | Agent Name | IP | OS | Role | Agent Status |
+|---|---|---|---|---|---|
+| 000 | wazuh-siem (server) | 192.168.172.140 | Ubuntu 26.04 LTS | Wazuh Manager + Indexer + Dashboard + Filebeat | Active/Local |
+| 005 | host-ubuntu-agent | 192.168.172.1 | Ubuntu 24.04.4 LTS | Host hypervisor monitoring | ✅ Active |
+| 006 | kali-agent | 192.168.172.137 | Kali GNU/Linux 2026.1 | Attacker | ✅ Active |
+| 009 | metasploitable3-ubuntu-agent | 192.168.172.142 | Ubuntu 14.04 Trusty Tahr | Target — Linux | ✅ Active |
+| 011 | windows-11-agent | 192.168.172.136 | Windows 11 Pro 10.0.22621.4317 | Target — Windows | ✅ Active |
+| TBC | metasploitable3-winserver2008 | TBC | Windows Server 2008 | Target — Windows Server | ⬜ Agent pending |
 
 ---
 
-### Suricata (Network IDS)
+## Component Status
 
-Suricata is installed on the same `wazuh-siem` VM to capture lab network traffic.
-
-```bash
-# Install Suricata
-sudo add-apt-repository ppa:oisf/suricata-stable -y
-sudo apt update
-sudo apt install suricata -y
-
-# Check version
-suricata --build-info | grep Version
-
-# Update rules (Emerging Threats)
-sudo suricata-update
-
-# Identify the correct monitoring interface
-ip a  # Look for your host-only interface (e.g., enp0s8)
-
-# Edit Suricata config
-sudo nano /etc/suricata/suricata.yaml
-```
-
-Key `suricata.yaml` settings:
-```yaml
-# Set home network
-vars:
-  address-groups:
-    HOME_NET: "[192.168.56.0/24]"
-
-# Set monitoring interface
-af-packet:
-  - interface: enp0s8   # Replace with your host-only adapter name
-
-# Enable eve.json output
-outputs:
-  - eve-log:
-      enabled: yes
-      filetype: regular
-      filename: /var/log/suricata/eve.json
-      types:
-        - alert
-        - dns
-        - http
-        - ssh
-        - flow
-```
-
-```bash
-# Start and enable Suricata
-sudo systemctl enable suricata
-sudo systemctl start suricata
-sudo systemctl status suricata
-
-# Test traffic capture
-sudo tail -f /var/log/suricata/eve.json
-```
-
----
-
-### Suricata → Wazuh Integration
-
-Wazuh reads Suricata's `eve.json` via its local agent file monitoring capability.
-
-```bash
-# Edit Wazuh agent/manager local config
-sudo nano /var/ossec/etc/ossec.conf
-```
-
-Add inside `<ossec_config>`:
-```xml
-<localfile>
-  <log_format>json</log_format>
-  <location>/var/log/suricata/eve.json</location>
-</ossec_config>
-```
-
-```bash
-# Restart Wazuh manager
-sudo systemctl restart wazuh-manager
-
-# Verify logs are being read
-sudo tail -f /var/ossec/logs/ossec.log | grep suricata
-```
-
----
-
-### Wazuh Agent — Metasploitable2
-
-```bash
-# On Metasploitable2 VM
-# Download agent (adjust version to match your Wazuh server)
-wget https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.x.x_amd64.deb
-
-# Install with manager IP
-sudo WAZUH_MANAGER='192.168.56.10' dpkg -i wazuh-agent_4.x.x_amd64.deb
-
-# Start agent
-sudo systemctl daemon-reload
-sudo systemctl enable wazuh-agent
-sudo systemctl start wazuh-agent
-```
-
----
-
-### Wazuh Agent — Windows 11
-
-1. Download the Wazuh Windows agent MSI from: `https://packages.wazuh.com/4.x/windows/`
-2. Run installer and set Manager IP: `192.168.56.10`
-3. Or install via PowerShell:
-
-```powershell
-# Run as Administrator
-Invoke-WebRequest -Uri "https://packages.wazuh.com/4.x/windows/wazuh-agent-4.x.x-1.msi" -OutFile "wazuh-agent.msi"
-msiexec.exe /i wazuh-agent.msi /q WAZUH_MANAGER="192.168.56.10" WAZUH_AGENT_NAME="win11-target"
-
-# Start service
-NET START WazuhSvc
-```
-
----
-
-## Log Collection Configuration
-
-### SSH Authentication Logs
-
-Wazuh monitors `/var/log/auth.log` (Debian/Ubuntu) by default. On Metasploitable2:
-
-```xml
-<!-- In ossec.conf on the Metasploitable2 agent -->
-<localfile>
-  <log_format>syslog</log_format>
-  <location>/var/log/auth.log</location>
-</localfile>
-```
-
-### FTP Logs
-
-```xml
-<localfile>
-  <log_format>syslog</log_format>
-  <location>/var/log/vsftpd.log</location>
-</localfile>
-```
-
-### Apache / DVWA Logs
-
-```xml
-<localfile>
-  <log_format>apache</log_format>
-  <location>/var/log/apache2/access.log</location>
-</localfile>
-
-<localfile>
-  <log_format>apache</log_format>
-  <location>/var/log/apache2/error.log</location>
-</localfile>
-```
-
-### Windows Event Logs
-
-Windows agent `ossec.conf` (at `C:\Program Files (x86)\ossec-agent\ossec.conf`):
-
-```xml
-<localfile>
-  <log_format>eventchannel</log_format>
-  <location>Security</location>
-</localfile>
-
-<localfile>
-  <log_format>eventchannel</log_format>
-  <location>System</location>
-</localfile>
-
-<localfile>
-  <log_format>eventchannel</log_format>
-  <location>Application</location>
-</localfile>
-```
-
-### Suricata Alerts
-
-Already configured above via `eve.json` ingestion into Wazuh manager's `ossec.conf`.
+| Component | Status | Notes |
+|---|---|---|
+| Wazuh Manager | ✅ Running | v4.14.5 |
+| Wazuh Indexer | ✅ Running | node01 |
+| Wazuh Dashboard | ✅ Running | https://192.168.172.140 |
+| Filebeat | ✅ Running | Shipping logs to indexer |
+| Suricata | ⬜ Pending | To be installed on Wazuh VM |
+| Suricata → Wazuh | ⬜ Pending | eve.json integration pending |
+| Host agent | ✅ Active | Hypervisor monitoring enabled |
+| Kali agent | ✅ Active | Attacker endpoint monitored |
+| Metasploitable3 Ubuntu agent | ✅ Active | Linux target monitored |
+| Windows 11 agent | ✅ Active | Windows target monitored |
+| Win Server 2008 agent | ⬜ Pending | Not yet installed |
 
 ---
 
 ## Attack Scenarios
 
-### Nmap Port Scan
+Attack scenarios are executed from Kali Linux (`192.168.172.137`) against lab targets. Full commands, raw log verification steps, and expected alert details are documented in the [operational runbook](docs/siem_lab_runbook.md).
 
-**From Kali Linux:**
-```bash
-# SYN scan (stealthy)
-sudo nmap -sS -p- 192.168.56.20
+### Phase 1 — Visibility Checks
 
-# Service version + OS detection
-sudo nmap -sV -O 192.168.56.20
+| Test | Target | Purpose |
+|---|---|---|
+| Agent connectivity check | All agents | Confirm all endpoints reporting |
+| SSH failed login (single) | Metasploitable3 Ubuntu | Validate auth log ingestion |
+| RDP failed login | Windows 11 | Validate Windows Event Log ingestion |
 
-# Aggressive scan
-sudo nmap -A 192.168.56.20
-```
+### Phase 2 — Attack Patterns
 
-**Expected detection:**
-- Suricata: `ET SCAN` rules trigger on port sweep
-- Wazuh Rule: `40101` — Port scan detected
+| Attack | Tool | Target | Wazuh Rule |
+|---|---|---|---|
+| SSH brute force | Hydra | Metasploitable3 Ubuntu | 5763 |
+| RDP brute force | Hydra | Windows 11 | 60204 |
+| Network port scan | Nmap | All targets | 40101 |
+| Web vulnerability scan | Nikto | Metasploitable3 Ubuntu | 31151 |
 
----
+### Phase 3 — System Compromise Simulation
 
-### SSH Brute Force (Hydra)
+| Attack | Target | Wazuh Rule |
+|---|---|---|
+| Create local user | Windows 11 | 60145 |
+| Add user to Administrators | Windows 11 | 60146 |
+| Successful login after failures | Windows 11 | 60109 |
+| Sudo privilege escalation | Metasploitable3 Ubuntu | 5401 / 5403 |
+| File Integrity Monitoring — Linux | Metasploitable3 Ubuntu | 550 / 553 / 554 |
+| File Integrity Monitoring — Windows | Windows 11 | 550 / 553 / 554 |
 
-```bash
-# Generate or use wordlist
-hydra -l root -P /usr/share/wordlists/rockyou.txt \
-  ssh://192.168.56.20 -t 4 -V
-```
+### Phase 4 — Advanced Behavior
 
-**Expected detection:**
-- Wazuh Rule: `5712` — SSH brute force (multiple failed logins)
-- Auth log: Multiple `Failed password` entries
+| Attack | Tool | Target | Wazuh Rule |
+|---|---|---|---|
+| vsftpd backdoor exploit | Metasploit | Metasploitable3 Ubuntu | 5712 |
+| Netcat reverse shell | Netcat | Metasploitable3 Ubuntu | 92200 |
+| Cron persistence | Manual | Metasploitable3 Ubuntu | 5007 |
+| Scheduled task persistence | cmd.exe | Windows 11 | 60145 |
+| Simulated malware file activity | Bash | Metasploitable3 Ubuntu | 550 / 92200 |
 
----
-
-### FTP Brute Force
-
-```bash
-hydra -l ftp -P /usr/share/wordlists/rockyou.txt \
-  ftp://192.168.56.20 -V
-```
-
-**Expected detection:**
-- Wazuh Rule: `11201` — FTP authentication failure
-- Suricata: `ET SCAN FTP Brute Force` signature
-
----
-
-### DVWA Attacks
-
-Ensure DVWA is accessible at `http://192.168.56.20/dvwa`
-
-**SQL Injection:**
-```bash
-sqlmap -u "http://192.168.56.20/dvwa/vulnerabilities/sqli/?id=1&Submit=Submit" \
-  --cookie="PHPSESSID=<your_session>; security=low" \
-  --dbs --batch
-```
-
-**Command Injection (manual):**
-```
-# In DVWA Command Injection page:
-127.0.0.1; cat /etc/passwd
-127.0.0.1 && id
-```
-
-**Brute Force (DVWA login):**
-```bash
-hydra -l admin -P /usr/share/wordlists/rockyou.txt \
-  192.168.56.20 http-get-form \
-  "/dvwa/vulnerabilities/brute/:username=^USER^&password=^PASS^&Login=Login:Username and/or password incorrect.:H=Cookie: PHPSESSID=<session>; security=low"
-```
-
-**Expected detection:**
-- Apache access log: Suspicious GET/POST patterns
-- Wazuh Rule: `31103` — Web attack SQL injection attempt
-- Suricata: `ET WEB_SERVER` rules
+> Full runbook with exact commands, raw log verification, and tuning guidance: [`docs/siem_lab_runbook.md`](docs/siem_lab_runbook.md)
 
 ---
 
 ## Detection Results
 
-| Attack | Detection Source | Wazuh Rule ID | Alert Level |
+> To be populated after attack simulation is complete.
+
+| Attack | Detection Source | Wazuh Rule ID | Level | MITRE Technique |
+|---|---|---|---|---|
+| SSH brute force | auth.log | 5763 | 10 | T1110 |
+| RDP brute force | Windows Security | 60204 | 10 | T1110 |
+| Port scan | Suricata | 40101 | 8 | T1046 |
+| Web scan (Nikto) | Apache logs | 31151 | 6 | T1595.002 |
+| New user created | Windows Security | 60145 | 8 | T1136 |
+| Privilege escalation | Windows Security | 60146 | 8 | T1548 |
+| Sudo abuse | auth.log | 5403 | 3 | T1548 |
+| FIM — file change | Wazuh FIM | 550 | 7 | T1565 |
+| vsftpd exploit | vsftpd.log | 5712 | 10 | T1190 |
+| Reverse shell | syslog | 92200 | 10 | T1059 |
+| Cron persistence | syslog | 5007 | 7 | T1053.003 |
+| Scheduled task | Windows Security | 60145 | 8 | T1053.005 |
+
+---
+
+## MITRE ATT&CK Coverage
+
+| Tactic | Technique ID | Technique | Simulated Via |
 |---|---|---|---|
-| Nmap SYN Scan | Suricata | 40101 | Medium |
-| SSH Brute Force | Auth logs (Wazuh) | 5712 | High |
-| FTP Brute Force | vsftpd logs (Wazuh) | 11201 | High |
-| SQL Injection | Apache logs (Wazuh) | 31103 | High |
-| Command Injection | Apache logs (Wazuh) | 31106 | Critical |
-| DVWA Brute Force | Apache logs (Wazuh) | 31151 | High |
-
-> ⚠️ **Note:** Rule IDs may vary depending on Wazuh version. Verify in your deployment.
-
----
-
-## Custom Detection Rules
-
-Custom rules are placed at `/var/ossec/etc/rules/local_rules.xml`.
-
-**Example — Detect Nmap User-Agent in HTTP:**
-```xml
-<group name="web,nmap,">
-  <rule id="100001" level="10">
-    <if_group>web|accesslog</if_group>
-    <match>Nmap Scripting Engine</match>
-    <description>Nmap HTTP scan detected in web logs</description>
-    <mitre>
-      <id>T1046</id>
-    </mitre>
-  </rule>
-</group>
-```
-
-**Example — Multiple Failed SSH Logins (custom threshold):**
-```xml
-<group name="syslog,ssh,">
-  <rule id="100002" level="12" frequency="6" timeframe="60">
-    <if_matched_sid>5716</if_matched_sid>
-    <description>SSH brute force: 6+ failed attempts in 60 seconds</description>
-    <mitre>
-      <id>T1110</id>
-    </mitre>
-  </rule>
-</group>
-```
-
-```bash
-# Reload rules without restarting
-sudo /var/ossec/bin/wazuh-control restart
-```
-
----
-
-## Troubleshooting
-
-### No Traffic Captured in Suricata
-
-```bash
-# Verify interface name
-ip link show
-
-# Test Suricata is capturing on the right interface
-sudo suricata -i enp0s8 --pidfile /tmp/suricata.pid
-
-# Check for errors
-sudo journalctl -u suricata -f
-
-# Verify promiscuous mode (if needed)
-sudo ip link set enp0s8 promisc on
-```
-
-### Agents Not Reporting to Wazuh
-
-```bash
-# On agent machine — check connectivity
-telnet 192.168.56.10 1514
-
-# Check agent status
-sudo systemctl status wazuh-agent
-
-# View agent logs
-sudo tail -f /var/ossec/logs/ossec.log
-
-# On Wazuh manager — list agents
-sudo /var/ossec/bin/agent_control -la
-```
-
-### Logs Not Appearing in Dashboard
-
-```bash
-# Check indexer health
-curl -k -u admin:<password> https://192.168.56.10:9200/_cluster/health?pretty
-
-# Check Wazuh manager is indexing
-sudo tail -f /var/ossec/logs/ossec.log | grep indexer
-
-# Restart services
-sudo systemctl restart wazuh-manager
-sudo systemctl restart wazuh-indexer
-sudo systemctl restart wazuh-dashboard
-```
-
-### Suricata Alerts Not in Wazuh
-
-```bash
-# Verify eve.json is being written
-sudo tail -f /var/log/suricata/eve.json
-
-# Check file permissions
-ls -la /var/log/suricata/eve.json
-sudo chmod 644 /var/log/suricata/eve.json
-
-# Verify ossec.conf has the localfile entry
-sudo grep -A3 "suricata" /var/ossec/etc/ossec.conf
-```
-
----
-
-## Detection Improvements
-
-### Custom Suricata Rules
-
-Place custom rules in `/etc/suricata/rules/local.rules`:
-
-```bash
-# Detect Hydra SSH brute force tool
-alert tcp any any -> $HOME_NET 22 (msg:"HYDRA SSH Brute Force Tool Detected"; \
-  flow:to_server,established; content:"SSH"; threshold:type threshold, \
-  track by_src, count 5, seconds 60; sid:9000001; rev:1;)
-
-# Detect DVWA SQLi patterns
-alert http any any -> $HOME_NET any (msg:"DVWA SQLi Attempt"; \
-  http.uri; content:"SELECT"; nocase; content:"FROM"; nocase; \
-  sid:9000002; rev:1;)
-```
-
-After adding rules:
-```bash
-sudo suricata-update
-sudo systemctl restart suricata
-```
-
-### Reducing False Positives
-
-```bash
-# Suppress noisy Suricata rules
-echo "suppress gen_id 1, sig_id 2210044, track by_src, ip 192.168.56.10" \
-  >> /etc/suricata/threshold.conf
-
-# Tune Wazuh rule levels in local_rules.xml
-# Reduce level or add exceptions for known-good traffic
-```
-
-### Wazuh Active Response
-
-Enable automated blocking on brute force:
-```xml
-<!-- In ossec.conf -->
-<active-response>
-  <command>firewall-drop</command>
-  <location>local</location>
-  <rules_id>5712</rules_id>
-  <timeout>300</timeout>
-</active-response>
-```
+| Reconnaissance | T1595 | Active Scanning | Nmap |
+| Reconnaissance | T1595.002 | Vulnerability Scanning | Nikto |
+| Discovery | T1046 | Network Service Scanning | Nmap |
+| Credential Access | T1110 | Brute Force | Hydra (SSH + RDP) |
+| Initial Access | T1190 | Exploit Public-Facing Application | Metasploit vsftpd |
+| Execution | T1059 | Command and Scripting Interpreter | Netcat reverse shell |
+| Persistence | T1053.003 | Scheduled Task — Cron | Manual crontab |
+| Persistence | T1053.005 | Scheduled Task — Windows | schtasks.exe |
+| Persistence | T1136 | Create Account | net user |
+| Privilege Escalation | T1548 | Abuse Elevation Control | sudo / net localgroup |
+| Defense Evasion | T1027 | Obfuscated Files | base64 encoding |
+| Defense Evasion | T1070 | Indicator Removal | File deletion (FIM) |
+| Impact | T1565 | Data Manipulation | File modification (FIM) |
 
 ---
 
 ## Screenshots
 
-> *Screenshots to be added as lab is built and attacks are executed.*
-
-| Screenshot | Description |
+| File | Description |
 |---|---|
-| `screenshots/01_wazuh_dashboard.png` | Wazuh main dashboard overview |
-| `screenshots/02_suricata_alerts.png` | Suricata network alerts in Wazuh |
-| `screenshots/03_ssh_brute_force.png` | SSH brute force alert chain |
-| `screenshots/04_nmap_scan_detection.png` | Nmap port scan detection |
-| `screenshots/05_dvwa_sqli_alert.png` | SQL injection web attack alert |
-| `screenshots/06_agent_inventory.png` | All agents connected in dashboard |
-| `screenshots/07_windows_events.png` | Windows 11 event log ingestion |
+| `screenshots/wazuh/dashboard-overview.png` | Wazuh dashboard home |
+| `screenshots/wazuh/agent-inventory.png` | All agents active |
+| `screenshots/wazuh/alerts-view.png` | Alert feed |
+| `screenshots/suricata/eve-json-logs.png` | Suricata eve.json output |
+| `screenshots/suricata/alert-detection.png` | Suricata alert in Wazuh |
+| `screenshots/attacks/nmap-scan.png` | Nmap scan detection |
+| `screenshots/attacks/ssh-bruteforce.png` | SSH brute force alert chain |
+| `screenshots/attacks/sqli-attack.png` | SQL injection detection |
+| `screenshots/windows/event-logs.png` | Windows Event Log ingestion |
 
 ---
 
 ## References
 
-- [Wazuh Official Documentation](https://documentation.wazuh.com)
+- [Wazuh Documentation](https://documentation.wazuh.com)
 - [Suricata Documentation](https://suricata.readthedocs.io)
 - [Emerging Threats Rules](https://rules.emergingthreats.net)
 - [MITRE ATT&CK Framework](https://attack.mitre.org)
 - [DVWA Project](https://dvwa.co.uk)
+- [Metasploitable3](https://github.com/rapid7/metasploitable3)
 
 ---
 
 ## Author
 
 **Wilson Njoroge Wanderi**
-Cybersecurity Detection Engineer — SOC Lab Portfolio Project
+Cybersecurity and SOC Engineer
 
-> Built as a hands-on demonstration of SIEM deployment, network intrusion detection, and attack simulation in a virtualized environment.
+[GitHub](https://github.com/wilsonnjoroge) | [LinkedIn](https://www.linkedin.com/in/wilson-njoroge-wanderi-ccep-cc-kcna-itil%C2%AE4-pho-33b615166/)
+
+> This is Phase 3 of a structured cybersecurity portfolio following the full attack-and-defence lifecycle. Phase 1 (Vulnerability Assessment) and Phase 2 (Penetration Testing) are documented in separate repositories.
 
 ---
 
-*README v1.0 — Updated as lab is built*
+*README v2.0 — Updated May 2026*
