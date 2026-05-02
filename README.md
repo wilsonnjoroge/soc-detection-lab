@@ -16,11 +16,13 @@
 3. [Repo Structure](#repo-structure)
 4. [Environment](#environment)
 5. [Component Status](#component-status)
-6. [Attack Scenarios](#attack-scenarios)
-7. [Detection Results](#detection-results)
-8. [MITRE ATT&CK Coverage](#mitre-attck-coverage)
-9. [Screenshots](#screenshots)
-10. [References](#references)
+6. [Setup](#setup)
+7. [Testing Methodology](#testing-methodology)
+8. [Attack Scenarios](#attack-scenarios)
+9. [Detection Results](#detection-results)
+10. [MITRE ATT&CK Coverage](#mitre-attck-coverage)
+11. [Screenshots](#screenshots)
+12. [References](#references)
 
 ---
 
@@ -135,7 +137,8 @@ soc-detection-lab/
 │
 └── docs/
     ├── setup-guide.md
-    ├── troubleshooting.md
+    ├── siem_lab_runbook.md
+    ├── siem_methodology_executive.md
     └── detection-improvements.md
 ```
 
@@ -163,6 +166,12 @@ soc-detection-lab/
 | 011 | windows-11-agent | 192.168.172.136 | Windows 11 Pro 10.0.22621.4317 | Target — Windows | ✅ Active |
 | TBC | metasploitable3-winserver2008 | TBC | Windows Server 2008 | Target — Windows Server | ⬜ Agent pending |
 
+### Network
+
+All VMs connect to a VMware Host-Only network (`192.168.172.0/24`). VMs requiring internet access for package downloads use an additional NAT adapter. Each VM has:
+- **Adapter 1:** VMware Host-Only (lab traffic)
+- **Adapter 2:** NAT (internet — package downloads only, where needed)
+
 ---
 
 ## Component Status
@@ -183,9 +192,73 @@ soc-detection-lab/
 
 ---
 
+## [Setup](docs/setup-guide.md)
+
+Full installation and configuration instructions are in [`docs/setup-guide.md`](docs/setup-guide.md). It covers:
+
+- **Wazuh all-in-one deployment** — Manager, Indexer, Dashboard, and Filebeat in a single automated install
+- **Linux agent deployment** — applies to Kali, Metasploitable3 Ubuntu, and the host machine
+- **Windows agent deployment** — PowerShell and GUI installer options for Windows 11 and Server 2008
+- **Suricata installation and configuration** — interface setup, HOME_NET, eve.json output
+- **Suricata → Wazuh integration** — localfile config, file permissions, verification
+- **Log collection configuration** — agent groups for Linux (`auth.log`, `syslog`, Apache) and Windows (Security, System, Sysmon)
+- **Custom detection rules** — Nmap HTTP detection, SSH brute force threshold, command injection patterns, Suricata local rules
+- **Detection improvements** — false positive suppression, active response auto-blocking
+- **Troubleshooting** — agent connectivity, log ingestion, Suricata traffic capture, dashboard health
+
+---
+
+## Testing Methodology
+
+Detection coverage is validated across five telemetry domains, every test mapped to a log source, expected alert, and measurable outcome. The goal is not to "run attacks" — it is to **prove that the SIEM sees what it should see**.
+
+### Telemetry Domains
+
+| Domain | What It Covers |
+|---|---|
+| **Authentication Events** | Login failures, brute force, credential attacks |
+| **Privilege & User Activity** | Account creation, group changes, sudo abuse |
+| **Network Attack Patterns** | Reconnaissance, scanning, lateral movement |
+| **System Changes** | File integrity, registry, configuration drift |
+| **Malware & Exploit Behavior** | Exploitation, persistence, abnormal processes |
+
+### Validation Cycle
+
+Every test must complete all five steps. Partial validation is not coverage.
+
+```
+STEP 1 — Generate the event
+         Execute the action on the target VM
+
+STEP 2 — Confirm raw log
+         Verify the log exists at the source (auth.log, Event Viewer, syslog)
+
+STEP 3 — Confirm ingestion
+         Wazuh Dashboard → Discover → search for the agent + event
+
+STEP 4 — Confirm rule match
+         Check: alert level fired · rule ID triggered · decoder matched
+
+STEP 5 — Tune if missing
+         Enable log collector · adjust decoder · verify rule is active
+```
+
+### [Testing Phases](docs/siem_lab_runbook.md)
+
+| Phase | Focus | Objective |
+|---|---|---|
+| **Phase 1 — Visibility** | SSH failures, RDP failures, basic log flow | Confirm log ingestion from all agents |
+| **Phase 2 — Attack Patterns** | Hydra brute force, nmap scans | Validate pattern-based detection |
+| **Phase 3 — System Compromise** | User creation, privilege escalation, FIM | Validate endpoint detection depth |
+| **Phase 4 — Advanced Behavior** | Metasploit exploits, persistence simulation | Validate behavioral/heuristic rules |
+
+For exact commands, raw log verification steps, and per-phase tuning guidance, see the [operational runbook](docs/siem_lab_runbook.md).
+
+---
+
 ## Attack Scenarios
 
-Attack scenarios are executed from Kali Linux (`192.168.172.137`) against lab targets. Full commands, raw log verification steps, and expected alert details are documented in the [operational runbook](docs/siem_lab_runbook.md).
+All attacks are executed from Kali Linux (`192.168.172.137`) against lab targets.
 
 ### Phase 1 — Visibility Checks
 
@@ -308,4 +381,4 @@ Cybersecurity and SOC Engineer
 
 ---
 
-*README v2.0 — Updated May 2026*
+*README v2.1 — Updated May 2026*
