@@ -1,0 +1,620 @@
+%YAML 1.1
+---
+
+# =============================================================================
+# Suricata Configuration — SOC Detection Lab
+# Host:     Wazuh Manager VM
+# Interface: ens37 (192.168.172.140/24 — VMware Host-Only)
+# Network:  192.168.172.0/24
+# Mode:     IDS (passive, promiscuous)
+# Version:  Suricata 8.0.3
+# =============================================================================
+
+suricata-version: "8.0"
+
+# =============================================================================
+# STEP 1: NETWORK DEFINITION
+# =============================================================================
+
+vars:
+  address-groups:
+    HOME_NET: "[192.168.172.0/24]"
+    EXTERNAL_NET: "!$HOME_NET"
+
+    # Lab servers — all on HOME_NET
+    HTTP_SERVERS: "$HOME_NET"
+    SMTP_SERVERS: "$HOME_NET"
+    SQL_SERVERS: "$HOME_NET"
+    DNS_SERVERS: "$HOME_NET"
+    TELNET_SERVERS: "$HOME_NET"
+    AIM_SERVERS: "$EXTERNAL_NET"
+    DC_SERVERS: "$HOME_NET"
+
+    # ICS/SCADA — disabled in lab (kept for rule compatibility)
+    DNP3_SERVER: "$HOME_NET"
+    DNP3_CLIENT: "$HOME_NET"
+    MODBUS_CLIENT: "$HOME_NET"
+    MODBUS_SERVER: "$HOME_NET"
+    ENIP_CLIENT: "$HOME_NET"
+    ENIP_SERVER: "$HOME_NET"
+
+  port-groups:
+    HTTP_PORTS: "80"
+    SHELLCODE_PORTS: "!80"
+    ORACLE_PORTS: 1521
+    SSH_PORTS: 22
+    DNP3_PORTS: 20000
+    MODBUS_PORTS: 502
+    FILE_DATA_PORTS: "[$HTTP_PORTS,110,143]"
+    FTP_PORTS: 21
+    GENEVE_PORTS: 6081
+    VXLAN_PORTS: 4789
+    TEREDO_PORTS: 3544
+    SIP_PORTS: "[5060, 5061]"
+
+# =============================================================================
+# STEP 2: OUTPUTS
+# =============================================================================
+
+default-log-dir: /var/log/suricata/
+
+stats:
+  enabled: yes
+  interval: 8
+
+outputs:
+  # fast.log — human readable alerts (quick tailing during lab testing)
+  - fast:
+      enabled: yes
+      filename: fast.log
+      append: yes
+
+  # eve.json — structured JSON output, ingested by Wazuh
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+
+      pcap-file: false
+
+      # Community Flow ID — enables correlation with other tools (Zeek, etc.)
+      community-id: true
+      community-id-seed: 0
+
+      xff:
+        enabled: no
+        mode: extra-data
+        deployment: reverse
+        header: X-Forwarded-For
+
+      types:
+        - alert:
+            tagged-packets: yes
+
+        - anomaly:
+            enabled: yes
+
+        # Protocol loggers — relevant to lab attack scenarios
+        - http:
+            extended: yes        # captures URI, method, user-agent — critical for Nikto detection
+
+        - dns:
+            # both requests and responses logged by default
+
+        - tls:
+            extended: yes        # captures SNI, cert info — useful for C2 detection
+
+        - ftp                    # vsftpd exploit detection (Metasploitable2)
+
+        - ssh                    # brute force + Hydra detection
+
+        - rdp                    # RDP brute force (Windows agent)
+
+        - smb:                   # SMB enumeration / lateral movement
+            #types: [file, tree_connect, negotiate, dcerpc, create, session_setup]
+
+        - dcerpc                 # Windows RPC — lateral movement patterns
+
+        - krb5                   # Kerberos — relevant for Windows domain attacks
+
+        - smtp
+
+        - http2
+
+        - flow                   # bi-directional flow records — baseline behavior
+
+        - dhcp:
+            enabled: yes
+            extended: no
+
+        - stats:
+            totals: yes
+            threads: no
+            deltas: no
+
+        # Disabled — not relevant to lab
+        # - frame (very verbose, debug only)
+        # - dnp3 (ICS/SCADA, not in lab)
+        # - enip (ICS/SCADA, not in lab)
+        # - mqtt (IoT, not in lab)
+        # - rfb (VNC — can re-enable if testing Metasploitable VNC)
+        # - snmp
+        # - sip
+        # - quic
+        # - ldap
+        # - pop3
+        # - nfs
+        # - tftp
+        # - ike
+        # - bittorrent-dht
+        # - websocket
+        # - doh2
+        # - pgsql
+        # - mdns
+
+  # Disabled outputs — not needed in lab
+  - tls-store:
+      enabled: no
+
+  - pcap-log:
+      enabled: no
+      filename: log.pcap
+      limit: 1000 MiB
+      max-files: 2000
+      compression: none
+      mode: normal
+      use-stream-depth: no
+      honor-pass-rules: no
+
+  - alert-debug:
+      enabled: no
+      filename: alert-debug.log
+      append: yes
+
+  - stats:
+      enabled: yes
+      filename: stats.log
+      append: yes
+      totals: yes
+      threads: no
+
+  - file-store:
+      version: 2
+      enabled: no
+
+  - tcp-data:
+      enabled: no
+      type: file
+      filename: tcp-data.log
+
+  - http-body-data:
+      enabled: no
+      type: file
+      filename: http-data.log
+
+  - lua:
+      enabled: no
+      scripts:
+
+# =============================================================================
+# LOGGING (Suricata engine logs — not alert logs)
+# =============================================================================
+
+logging:
+  default-log-level: notice
+  default-output-filter:
+  outputs:
+  - console:
+      enabled: yes
+  - file:
+      enabled: yes
+      level: info
+      filename: suricata.log
+  - syslog:
+      enabled: no
+      facility: local5
+      format: "[%i] <%d> -- "
+
+# =============================================================================
+# STEP 3: CAPTURE — AF-PACKET ON ens37
+# =============================================================================
+
+af-packet:
+  - interface: ens37
+    cluster-id: 99
+    cluster-type: cluster_flow
+    defrag: yes
+    # Promiscuous mode — captures ALL traffic on 192.168.172.0/24
+    # not just traffic destined to this host
+    # Also set via: sudo ip link set ens37 promisc on
+    disable-promisc: no        # no = promiscuous mode ON
+    use-mmap: yes
+    tpacket-v3: yes
+    #checksum-checks: no       # uncomment if you see checksum errors from VMware
+
+  - interface: default
+
+# Disable unused capture methods
+af-xdp:
+  - interface: default
+
+# pcap fallback — disabled, using af-packet
+pcap:
+  - interface: default
+
+pcap-file:
+  checksum-checks: auto
+
+# =============================================================================
+# STEP 4: APP LAYER PROTOCOLS
+# Enabled: protocols seen in lab attack scenarios
+# Disabled: ICS/SCADA and irrelevant protocols
+# =============================================================================
+
+app-layer:
+  protocols:
+    # --- ENABLED (lab-relevant) ---
+    http:
+      enabled: yes
+      libhtp:
+        default-config:
+          personality: IDS
+          request-body-limit: 100 KiB
+          response-body-limit: 100 KiB
+          request-body-minimal-inspect-size: 32 KiB
+          request-body-inspect-window: 4 KiB
+          response-body-minimal-inspect-size: 40 KiB
+          response-body-inspect-window: 16 KiB
+          response-body-decompress-layer-limit: 2
+          http-body-inline: auto
+          swf-decompression:
+            enabled: no
+            type: both
+            compress-depth: 100 KiB
+            decompress-depth: 100 KiB
+          double-decode-path: no
+          double-decode-query: no
+        server-config:
+
+    ftp:
+      enabled: yes              # vsftpd exploit on Metasploitable2
+
+    ssh:
+      enabled: yes              # Hydra brute force detection
+
+    rdp:
+      enabled: yes              # RDP brute force on Windows VM
+
+    smb:
+      enabled: yes              # SMB enumeration
+      detection-ports:
+        dp: 139, 445
+
+    dcerpc:
+      enabled: yes
+
+    telnet:
+      enabled: yes              # Metasploitable2 has telnet exposed
+
+    dns:
+      tcp:
+        enabled: yes
+        detection-ports:
+          dp: 53
+      udp:
+        enabled: yes
+        detection-ports:
+          dp: 53
+
+    tls:
+      enabled: yes
+      detection-ports:
+        dp: 443
+
+    smtp:
+      enabled: yes
+      raw-extraction: no
+      mime:
+        decode-mime: yes
+        decode-base64: yes
+        decode-quoted-printable: yes
+        header-value-depth: 2000
+        extract-urls: yes
+        body-md5: no
+      inspected-tracker:
+        content-limit: 100000
+        content-inspect-min-size: 32768
+        content-inspect-window: 4096
+
+    http2:
+      enabled: yes
+
+    doh2:
+      enabled: yes
+
+    krb5:
+      enabled: yes
+
+    ntp:
+      enabled: yes
+
+    dhcp:
+      enabled: yes
+
+    quic:
+      enabled: yes
+
+    imap:
+      enabled: detection-only
+
+    nfs:
+      enabled: yes
+
+    tftp:
+      enabled: yes
+
+    # --- DISABLED (not in lab scope) ---
+    modbus:
+      enabled: no
+      detection-ports:
+        dp: 502
+      stream-depth: 0
+
+    dnp3:
+      enabled: no
+      detection-ports:
+        dp: 20000
+
+    enip:
+      enabled: no
+      detection-ports:
+        dp: 44818
+        sp: 44818
+
+    pgsql:
+      enabled: no
+      stream-depth: 0
+
+    rfb:
+      enabled: no               # re-enable if testing Metasploitable VNC (port 5900)
+      detection-ports:
+        dp: 5900, 5901, 5902, 5903, 5904, 5905, 5906, 5907, 5908, 5909
+
+    mqtt:
+      enabled: no
+
+    snmp:
+      enabled: no
+
+    ike:
+      enabled: no
+
+    bittorrent-dht:
+      enabled: no
+
+    sip:
+      enabled: no
+
+    ldap:
+      tcp:
+        enabled: no
+        detection-ports:
+          dp: 389, 3268
+      udp:
+        enabled: no
+        detection-ports:
+          dp: 389, 3268
+
+    mdns:
+      enabled: no
+
+    pop3:
+      enabled: no
+      detection-ports:
+        dp: 110
+      stream-depth: 0
+
+    websocket:
+      enabled: no
+
+# =============================================================================
+# ADVANCED SETTINGS
+# =============================================================================
+
+asn1-max-frames: 256
+
+datasets:
+  defaults:
+  limits:
+  rules:
+
+security:
+  limit-noproc: true
+  landlock:
+    enabled: no
+    directories:
+      write:
+        - /var/lib/suricata
+      read:
+        - /usr/
+        - /etc/
+        - /etc/suricata/
+
+coredump:
+  max-dump: unlimited
+
+host-mode: auto
+
+unix-command:
+  enabled: yes
+  filename: /var/run/suricata/suricata-command.socket
+
+legacy:
+  uricontent: enabled
+
+exception-policy: auto
+
+# =============================================================================
+# DETECTION ENGINE
+# =============================================================================
+
+detect:
+  profile: medium
+  custom-values:
+    toclient-groups: 3
+    toserver-groups: 25
+  sgh-mpm-context: auto
+  sgh-mpm-caching: yes
+  sgh-mpm-caching-path: /var/lib/suricata/cache/sgh
+  prefilter:
+    default: mpm
+  thresholds:
+    hash-size: 16384
+    memcap: 16 MiB
+  profiling:
+    grouping:
+      dump-to-disk: false
+      include-rules: false
+      include-mpm-stats: false
+
+mpm-algo: auto
+spm-algo: auto
+
+# =============================================================================
+# FLOW + STREAM + MEMORY
+# =============================================================================
+
+host-os-policy:
+  windows: [0.0.0.0/0]
+  bsd: []
+  bsd-right: []
+  old-linux: []
+  linux: []
+  old-solaris: []
+  solaris: []
+  hpux10: []
+  hpux11: []
+  irix: []
+  macos: []
+  vista: []
+  windows2k3: []
+
+defrag:
+  memcap: 32 MiB
+  hash-size: 65536
+  trackers: 65535
+  max-frags: 65535
+  prealloc: yes
+  timeout: 60
+
+flow:
+  memcap: 128 MiB
+  hash-size: 65536
+  prealloc: 10000
+  emergency-recovery: 30
+
+vlan:
+  use-for-tracking: true
+
+livedev:
+  use-for-tracking: true
+
+flow-timeouts:
+  default:
+    new: 30
+    established: 300
+    closed: 0
+    bypassed: 100
+    emergency-new: 10
+    emergency-established: 100
+    emergency-closed: 0
+    emergency-bypassed: 50
+  tcp:
+    new: 60
+    established: 600
+    closed: 60
+    bypassed: 100
+    emergency-new: 5
+    emergency-established: 100
+    emergency-closed: 10
+    emergency-bypassed: 50
+  udp:
+    new: 30
+    established: 300
+    bypassed: 100
+    emergency-new: 10
+    emergency-established: 100
+    emergency-bypassed: 50
+  icmp:
+    new: 30
+    established: 300
+    bypassed: 100
+    emergency-new: 10
+    emergency-established: 100
+    emergency-bypassed: 50
+
+stream:
+  memcap: 64 MiB
+  checksum-validation: yes
+  inline: auto
+  reassembly:
+    urgent:
+      policy: oob
+      oob-limit-policy: drop
+    memcap: 256 MiB
+    depth: 1 MiB
+    toserver-chunk-size: 2560
+    toclient-chunk-size: 2560
+    randomize-chunk-size: yes
+
+host:
+  hash-size: 4096
+  prealloc: 1000
+  memcap: 32 MiB
+
+# =============================================================================
+# THREADING
+# =============================================================================
+
+threading:
+  set-cpu-affinity: no
+  autopin: no
+  detect-thread-ratio: 1.0
+
+# =============================================================================
+# DECODER
+# =============================================================================
+
+decoder:
+  teredo:
+    enabled: true
+    ports: $TEREDO_PORTS
+  vxlan:
+    enabled: true
+    ports: $VXLAN_PORTS
+  geneve:
+    enabled: true
+    ports: $GENEVE_PORTS
+  recursion-level:
+    use-for-tracking: true
+
+# =============================================================================
+# PCRE
+# =============================================================================
+
+pcre:
+  match-limit: 3500
+  match-limit-recursion: 1500
+
+# =============================================================================
+# RULES
+# =============================================================================
+
+default-rule-path: /var/lib/suricata/rules
+
+rule-files:
+  - suricata.rules
+
+classification-file: /etc/suricata/classification.config
+reference-config-file: /etc/suricata/reference.config
+# threshold-file: /etc/suricata/threshold.config
