@@ -254,14 +254,18 @@ Key settings:
 ```yaml
 vars:
   address-groups:
-    HOME_NET: "[192.168.172.0/24]"
+    HOME_NET: "[x.x.x.0/24]" # This is the subnet for the Host Only NIC (In vms is the adapter for host only)
     EXTERNAL_NET: "!$HOME_NET"
-
-af-packet:
-  - interface: <your-interface>
-    cluster-id: 99
-    cluster-type: cluster_flow
-    defrag: yes
+	
+	af-packet:
+	  - interface: ens37
+		cluster-id: 99
+		cluster-type: cluster_flow
+		defrag: yes
+		disable-promisc: no        # no = promiscuous mode ON. Promiscuous mode allows capture of  ALL traffic on [x.x.x.0/24]. 
+		#On the terminal for the vm with suricata installed, Run  the command -> sudo ip link set ens37 promisc on 
+		use-mmap: yes
+		tpacket-v3: yes
 
 outputs:
   - eve-log:
