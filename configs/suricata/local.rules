@@ -1,0 +1,7 @@
+alert tcp any any -> $HOME_NET any (msg:"ET SCAN Nmap SYN Scan"; flow:stateless; flags:S,12; threshold:type both,track by_src,count 10,seconds 3; classtype:network-scan; sid:9000001; rev:1;)
+
+alert icmp any any -> $HOME_NET any (msg:"ET SCAN Nmap ICMP Ping Sweep"; itype:8; threshold:type both,track by_src,count 5,seconds 3; classtype:network-scan; sid:9000002; rev:1;)
+
+alert tcp any any -> $HOME_NET any (msg:"ET SCAN Nmap OS Detection"; flags:S,12; window:1; classtype:network-scan; sid:9000003; rev:1;)
+
+alert tcp any any -> $HOME_NET any (msg:"LOCAL Nmap Port Scan Detected"; flow:stateless; flags:S; threshold:type threshold,track by_src,count 20,seconds 5; classtype:network-scan; sid:9000004; rev:1;)
