@@ -292,6 +292,12 @@ sudo suricata -T -c /etc/suricata/suricata.yaml -i ens37 # Check to see: Configu
 sudo systemctl enable suricata
 sudo systemctl start suricata
 sudo systemctl status suricata
+
+### Incase it fails to boot with permission error or you delete the /var/log/suricata dir
+
+sudo mkdir -p /var/log/suricata
+sudo chown root:root /var/log/suricata
+sudo chmod -R 755 /var/log/suricata
 ```
 
 ### Step 6 — Verify Traffic Capture
@@ -299,6 +305,15 @@ sudo systemctl status suricata
 ```bash
 
 sudo tail -f /var/log/suricata/eve.json
+
+### Incase it doent receive any traffic, ensure promisc is on
+
+sudo ip link set ens37 promisc on # run on the vm hosting the suricata
+
+sudo chmod a+rw /dev/vmnet1 # Allow promisc on OS level (Hypervisor)
+
+### COnfirm proisq is on
+ip link show ens37
 
 ```
 
