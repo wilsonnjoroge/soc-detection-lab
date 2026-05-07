@@ -1,7 +1,121 @@
-alert tcp any any -> $HOME_NET any (msg:"ET SCAN Nmap SYN Scan"; flow:stateless; flags:S,12; threshold:type both,track by_src,count 10,seconds 3; classtype:network-scan; sid:9000001; rev:1;)
+# =============================================================================
+# local.rules — Suricata Custom Detection Rules
+# =============================================================================
+# Location:   /etc/suricata/rules/local.rules
+# Lab:        SOC Detection Lab — 192.168.172.0/24
+# Interface:  ens37
+# Version:    Suricata 8.0.3
+# =============================================================================
+# After editing, reload with:
+#   sudo suricata-update
+#   sudo systemctl restart suricata
+#
+# Verify rules loaded:
+#   sudo suricata -T -c /etc/suricata/suricata.yaml -i ens37
+#
+# Tail alerts:
+#   sudo tail -f /var/log/suricata/fast.log
+# =============================================================================
 
-alert icmp any any -> $HOME_NET any (msg:"ET SCAN Nmap ICMP Ping Sweep"; itype:8; threshold:type both,track by_src,count 5,seconds 3; classtype:network-scan; sid:9000002; rev:1;)
 
+# =============================================================================
+# SECTION 1 — NMAP RECONNAISSANCE
+# Detects common Nmap scan techniques.
+# MITRE: T1046 (Network Service Scanning), T1595 (Active Scanning)
+# =============================================================================
+
+# SYN scan — most common Nmap default scan
+alert tcp any any -> $HOME_NET any (msg:"ET SCAN Nmap SYN Scan"; flow:stateless; flags:S,12; threshold:type both, track by_src, count 10, seconds 3; classtype:network-scan; sid:9000001; rev:1;)
+
+# ICMP ping sweep — Nmap -sn host discovery
+alert icmp any any -> $HOME_NET any (msg:"ET SCAN Nmap ICMP Ping Sweep"; itype:8; threshold:type both, track by_src, count 5, seconds 3; classtype:network-scan; sid:9000002; rev:1;)
+
+# OS fingerprinting — Nmap -O sends probes with unusual TCP window sizes
 alert tcp any any -> $HOME_NET any (msg:"ET SCAN Nmap OS Detection"; flags:S,12; window:1; classtype:network-scan; sid:9000003; rev:1;)
 
-alert tcp any any -> $HOME_NET any (msg:"LOCAL Nmap Port Scan Detected"; flow:stateless; flags:S; threshold:type threshold,track by_src,count 20,seconds 5; classtype:network-scan; sid:9000004; rev:1;)
+# Generic port sweep — broad threshold-based catch-all
+alert tcp any any -> $HOME_NET any (msg:"LOCAL Nmap Port Scan Detected"; flow:stateless; flags:S; threshold:type threshold, track by_src, count 20, seconds 5; classtype:network-scan; sid:9000004; rev:1;)
+
+# Nmap scripting engine via HTTP user-agent
+alert http any any -> $HOME_NET any (msg:"LOCAL Nmap Scripting Engine HTTP Probe"; http.user_agent; content:"Nmap Scripting Engine"; nocase; classtype:network-scan; sid:9000005; rev:1;)
+
+
+# =============================================================================
+# SECTION 2 — SSH BRUTE FORCE
+# Detects rapid SSH connection attempts from same source.
+# MITRE: T1110 (Brute Force), T1110.001 (Password Guessing)
+# =============================================================================
+
+# Hydra / generic SSH brute force — connection rate threshold
+alert tcp any any -> $HOME_NET 22 (msg:"LOCAL SSH Brute Force Attempt"; flags:S; threshold:type threshold, track by_src, count 10, seconds 30; classtype:attempted-admin; sid:9000010; rev:2;)
+
+# Hydra user-agent (some Hydra builds send identifying strings)
+alert tcp any any -> $HOME_NET 22 (msg:"LOCAL Hydra SSH Tool Detected"; flow:to_server,established; content:"libssh"; classtype:attempted-admin; sid:9000011; rev:1;)
+
+
+# =============================================================================
+# SECTION 3 — FTP BRUTE FORCE
+# Detects rapid FTP authentication attempts.
+# MITRE: T1110 (Brute Force)
+# =============================================================================
+
+# FTP login failure rate threshold — 10 attempts in 30 seconds
+alert tcp any any -> $HOME_NET 21 (msg:"LOCAL FTP Brute Force Attempt"; flow:to_server,established; content:"USER"; threshold:type threshold, track by_src, count 10, seconds 30; classtype:attempted-admin; sid:9000020; rev:1;)
+
+
+# =============================================================================
+# SECTION 4 — WEB ATTACKS
+# Detects scanner signatures, SQLi, and command injection in HTTP traffic.
+# MITRE: T1190 (Exploit Public-Facing Application)
+#         T1595.002 (Vulnerability Scanning)
+# =============================================================================
+
+# Nikto web vulnerability scanner — detected by user-agent
+alert http any any -> $HOME_NET any (msg:"LOCAL Nikto Web Scanner Detected"; http.user_agent; content:"Nikto"; nocase; classtype:web-application-attack; sid:9000030; rev:1;)
+
+# sqlmap automated SQL injection scanner — detected by user-agent
+alert http any any -> $HOME_NET any (msg:"LOCAL SQLMap Scanner Detected"; http.user_agent; content:"sqlmap"; nocase; classtype:web-application-attack; sid:9000031; rev:1;)
+
+# SQL injection keyword in URI — SELECT FROM pattern
+alert http any any -> $HOME_NET any (msg:"LOCAL SQL Injection Attempt - SELECT FROM"; http.uri; content:"SELECT"; nocase; content:"FROM"; nocase; distance:0; classtype:web-application-attack; sid:9000032; rev:1;)
+
+# UNION SELECT — classic SQLi bypass technique
+alert http any any -> $HOME_NET any (msg:"LOCAL SQL Injection Attempt - UNION SELECT"; http.uri; content:"UNION"; nocase; content:"SELECT"; nocase; distance:0; classtype:web-application-attack; sid:9000033; rev:1;)
+
+# Command injection — common OS command payloads in HTTP URI
+alert http any any -> $HOME_NET any (msg:"LOCAL Command Injection Attempt in HTTP URI"; http.uri; pcre:"/(\x7c|;|&&|\x60).*(cat|id|whoami|uname|ls|wget|curl|bash|sh)/i"; classtype:web-application-attack; sid:9000034; rev:1;)
+
+# /etc/passwd access attempt via web
+alert http any any -> $HOME_NET any (msg:"LOCAL /etc/passwd Access Attempt via Web"; http.uri; content:"/etc/passwd"; nocase; classtype:web-application-attack; sid:9000035; rev:1;)
+
+
+# =============================================================================
+# SECTION 5 — EXPLOITATION
+# Detects known exploit traffic patterns against Metasploitable3 targets.
+# MITRE: T1190 (Exploit Public-Facing Application)
+# =============================================================================
+
+# vsftpd 2.3.4 backdoor — triggers on smiley face ":)" in USER command
+alert tcp any any -> $HOME_NET 21 (msg:"LOCAL vsftpd 2.3.4 Backdoor Trigger Detected"; flow:to_server,established; content:"USER"; content:":)"; classtype:trojan-activity; sid:9000040; rev:1;)
+
+# vsftpd backdoor shell — connection to port 6200 after exploit
+alert tcp any any -> $HOME_NET 6200 (msg:"LOCAL vsftpd Backdoor Shell Connection - Port 6200"; flags:S; classtype:trojan-activity; sid:9000041; rev:1;)
+
+# Reverse shell via netcat — outbound on common attacker listener ports
+alert tcp $HOME_NET any -> any [4444,4445,5555,1234,9001] (msg:"LOCAL Possible Reverse Shell - Outbound Connection on Common Listener Port"; flags:S; classtype:trojan-activity; sid:9000042; rev:1;)
+
+# Metasploit meterpreter — detected by stage download pattern (MZ/PE header)
+alert tcp any any -> $HOME_NET any (msg:"LOCAL Possible Metasploit Stager Connection"; flow:to_client,established; content:"|4d 5a|"; depth:2; classtype:trojan-activity; sid:9000043; rev:1;)
+
+
+# =============================================================================
+# SECTION 6 — WINDOWS TARGETING
+# Detects SMB and RDP attack patterns toward Windows agents.
+# MITRE: T1110 (Brute Force), T1021 (Remote Services)
+# =============================================================================
+
+# RDP brute force connection rate — 10 TCP SYNs to port 3389 in 30 seconds
+alert tcp any any -> $HOME_NET 3389 (msg:"LOCAL RDP Brute Force Attempt"; flags:S; threshold:type threshold, track by_src, count 10, seconds 30; classtype:attempted-admin; sid:9000050; rev:1;)
+
+# SMB connection sweep — scanning for open SMB shares
+alert tcp any any -> $HOME_NET 445 (msg:"LOCAL SMB Port Scan / Enumeration"; flags:S; threshold:type threshold, track by_src, count 5, seconds 10; classtype:network-scan; sid:9000051; rev:1;)
