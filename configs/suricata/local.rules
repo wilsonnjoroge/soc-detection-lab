@@ -83,7 +83,7 @@ alert http any any -> $HOME_NET any (msg:"LOCAL SQL Injection Attempt - SELECT F
 alert http any any -> $HOME_NET any (msg:"LOCAL SQL Injection Attempt - UNION SELECT"; http.uri; content:"UNION"; nocase; content:"SELECT"; nocase; distance:0; classtype:web-application-attack; sid:9000033; rev:1;)
 
 # Command injection — common OS command payloads in HTTP URI
-alert http any any -> $HOME_NET any (msg:"LOCAL Command Injection Attempt in HTTP URI"; http.uri; pcre:"/(\x7c|;|&&|\x60).*(cat|id|whoami|uname|ls|wget|curl|bash|sh)/i"; classtype:web-application-attack; sid:9000034; rev:1;)
+#alert http any any -> $HOME_NET any (msg:"LOCAL Command Injection Attempt in HTTP URI"; http.uri; pcre:"/(\x7c|;|&&|\x60).*(cat|id|whoami|uname|ls|wget|curl|bash|sh)/i"; classtype:web-application-attack; sid:9000034; rev:1;)
 
 # /etc/passwd access attempt via web
 alert http any any -> $HOME_NET any (msg:"LOCAL /etc/passwd Access Attempt via Web"; http.uri; content:"/etc/passwd"; nocase; classtype:web-application-attack; sid:9000035; rev:1;)

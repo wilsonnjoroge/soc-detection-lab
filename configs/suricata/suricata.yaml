@@ -232,19 +232,6 @@ af-packet:
     tpacket-v3: yes
     #checksum-checks: no       # uncomment if you see checksum errors from VMware
 
-  - interface: default
-
-# Disable unused capture methods
-af-xdp:
-  - interface: default
-
-# pcap fallback — disabled, using af-packet
-pcap:
-  - interface: default
-
-pcap-file:
-  checksum-checks: auto
-
 # =============================================================================
 # STEP 4: APP LAYER PROTOCOLS
 # Enabled: protocols seen in lab attack scenarios
@@ -355,67 +342,67 @@ app-layer:
 
     # --- DISABLED (not in lab scope) ---
     modbus:
-      enabled: no
+      enabled: yes
       detection-ports:
         dp: 502
       stream-depth: 0
 
-    dnp3:
-      enabled: no
+    dnp:
+      enabled: yes
       detection-ports:
         dp: 20000
 
     enip:
-      enabled: no
+      enabled: yes
       detection-ports:
         dp: 44818
         sp: 44818
 
     pgsql:
-      enabled: no
+      enabled: yes
       stream-depth: 0
 
     rfb:
-      enabled: no               # re-enable if testing Metasploitable VNC (port 5900)
+      enabled: yes               # re-enable if testing Metasploitable VNC (port 5900)
       detection-ports:
         dp: 5900, 5901, 5902, 5903, 5904, 5905, 5906, 5907, 5908, 5909
 
     mqtt:
-      enabled: no
+      enabled: yes
 
     snmp:
-      enabled: no
+      enabled: yes
 
     ike:
-      enabled: no
+      enabled: yes
 
     bittorrent-dht:
-      enabled: no
+      enabled: yes
 
     sip:
-      enabled: no
+      enabled: yes
 
     ldap:
       tcp:
-        enabled: no
+        enabled: yes
         detection-ports:
           dp: 389, 3268
       udp:
-        enabled: no
+        enabled: yes
         detection-ports:
           dp: 389, 3268
 
     mdns:
-      enabled: no
+      enabled: yes
 
     pop3:
-      enabled: no
+      enabled: yes
       detection-ports:
         dp: 110
       stream-depth: 0
 
     websocket:
-      enabled: no
+      enabled: yes
 
 # =============================================================================
 # ADVANCED SETTINGS
@@ -614,6 +601,7 @@ default-rule-path: /var/lib/suricata/rules
 
 rule-files:
   - suricata.rules
+  - /etc/suricata/rules/local.rules
 
 classification-file: /etc/suricata/classification.config
 reference-config-file: /etc/suricata/reference.config

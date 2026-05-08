@@ -1,0 +1,277 @@
+<!--
+  =============================================================================
+  local_rules.xml — Custom Wazuh Detection Rules
+  =============================================================================
+  Location:   /var/ossec/etc/rules/local_rules.xml
+  Wazuh:      4.14.5
+  Lab:        SOC Detection Lab — 192.168.172.0/24
+  =============================================================================
+  Custom rules must use IDs from 100000 upward.
+  All rules map to MITRE ATT&CK techniques.
+  After editing, reload with:
+    sudo /var/ossec/bin/wazuh-control restart
+  =============================================================================
+-->
+
+<!-- ===========================================================
+     GROUP: NETWORK RECONNAISSANCE
+     Detects scanning activity from Suricata/Nmap patterns.
+     MITRE: T1046 (Network Service Scanning)
+             T1595 (Active Scanning)
+     =========================================================== -->
+<group name="web,nmap,recon,">
+
+  <!-- Nmap scripting engine user-agent detected in Apache logs -->
+  <rule id="100001" level="10">
+    <if_group>web|accesslog</if_group>
+    <match>Nmap Scripting Engine</match>
+    <description>Nmap HTTP scan detected in web server access logs</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+  </rule>
+
+  <!-- Nikto web scanner user-agent detected in Apache logs -->
+  <rule id="100010" level="10">
+    <if_group>web|accesslog</if_group>
+    <match>Nikto</match>
+    <description>Nikto web vulnerability scanner detected in web logs</description>
+    <mitre>
+      <id>T1595.002</id>
+    </mitre>
+  </rule>
+
+</group>
+
+
+<!-- ===========================================================
+     GROUP: SSH BRUTE FORCE — CUSTOM THRESHOLDS
+     Extends Wazuh built-in SSH rules with tighter thresholds.
+     MITRE: T1110 (Brute Force)
+     =========================================================== -->
+<group name="syslog,ssh,authentication,">
+
+  <!--
+    SSH brute force — 6 or more failed attempts within 60 seconds.
+    Parent rule 5716: sshd repeated authentication failure.
+    Level 12 = High severity. Will trigger active response (firewall-drop).
+  -->
+  <rule id="100002" level="12" frequency="6" timeframe="60">
+    <if_matched_sid>5716</if_matched_sid>
+    <description>SSH brute force: 6 or more failed attempts in 60 seconds</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+  <!--
+    SSH login with invalid username — elevated threshold alert.
+    Fires when 10+ invalid user attempts seen from the same source.
+    Parent rule 5760: sshd attempt to login using a non-existent user.
+  -->
+  <rule id="100003" level="10" frequency="10" timeframe="30">
+    <if_matched_sid>5760</if_matched_sid>
+    <description>SSH login attempts with invalid usernames — possible username enumeration</description>
+    <mitre>
+      <id>T1110.003</id>
+    </mitre>
+  </rule>
+
+</group>
+
+
+<!-- ===========================================================
+     GROUP: WEB ATTACKS
+     Detects injection patterns in Apache access logs.
+     MITRE: T1190 (Exploit Public-Facing Application)
+             T1059 (Command & Scripting Interpreter)
+     =========================================================== -->
+<group name="web,injection,attack,">
+
+  <!--
+    Command injection patterns in web server access logs.
+    Matches common payloads used in DVWA command injection tests.
+    Level 14 = Critical.
+  -->
+  <rule id="100020" level="14">
+    <if_group>web|accesslog</if_group>
+    <match>cat /etc|whoami|/bin/bash|/bin/sh|/etc/passwd|id;|;id|&&id|&amp;&amp;id</match>
+    <description>Command injection attempt detected in web access logs</description>
+    <mitre>
+      <id>T1059</id>
+    </mitre>
+  </rule>
+
+  <!--
+    SQL injection patterns in web server access logs.
+    Matches sqlmap and manual SQLi payloads.
+    Level 12 = High.
+  -->
+  <rule id="100021" level="12">
+    <if_group>web|accesslog</if_group>
+    <match>SELECT.*FROM|UNION.*SELECT|OR 1=1|' OR '|sqlmap|information_schema</match>
+    <description>SQL injection attempt detected in web access logs</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+  <!--
+    sqlmap user-agent specifically detected.
+    Distinct from generic SQLi — identifies the tool by name.
+    Level 12 = High.
+  -->
+  <rule id="100022" level="12">
+    <if_group>web|accesslog</if_group>
+    <match>sqlmap</match>
+    <description>SQLMap automated scanner detected in web logs</description>
+    <mitre>
+      <id>T1595.002</id>
+    </mitre>
+  </rule>
+
+</group>
+
+
+<!-- ===========================================================
+     GROUP: SURICATA ALERT ENRICHMENT
+     Custom rules that fire on top of Suricata-sourced alerts
+     already decoded by Wazuh's built-in Suricata decoder.
+     MITRE: T1046, T1110, T1190
+     =========================================================== -->
+<group name="suricata,ids,network,">
+
+  <!--
+    Suricata detected an SSH-related event.
+    Suricata's SSH protocol logger generates events even before
+    rule matches — this catches raw SSH alert events from eve.json.
+    Level 8.
+  -->
+  <rule id="100030" level="8">
+    <if_sid>86601</if_sid>
+    <field name="event_type">alert</field>
+    <match>SSH</match>
+    <description>Suricata: SSH alert event — possible brute force or scan</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Suricata FTP anomaly detected.
+    Covers vsftpd backdoor and FTP brute force alerts from
+    Emerging Threats rules landing in eve.json.
+    Level 10.
+  -->
+  <rule id="100031" level="10">
+    <if_sid>86601</if_sid>
+    <field name="event_type">alert</field>
+    <match>FTP|vsftpd</match>
+    <description>Suricata: FTP anomaly detected — possible brute force or exploit attempt</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Suricata network scan alert.
+    Fires when Suricata's ET SCAN rules generate an alert — covers
+    nmap SYN sweep, ICMP ping sweep, and OS detection probes.
+    Level 8.
+  -->
+  <rule id="100032" level="8">
+    <if_sid>86601</if_sid>
+    <field name="event_type">alert</field>
+    <match>ET SCAN|scan|sweep</match>
+    <description>Suricata: Network scan detected — possible nmap or reconnaissance activity</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+  </rule>
+
+</group>
+
+
+<!-- ===========================================================
+     GROUP: PRIVILEGE ESCALATION — LINUX
+     Extends built-in sudo rules with additional context.
+     MITRE: T1548 (Abuse Elevation Control Mechanism)
+     =========================================================== -->
+<group name="syslog,sudo,privilege,">
+
+  <!--
+    Repeated failed sudo attempts — possible privilege escalation attempt.
+    Parent rule 5402: sudo failed authentication.
+    Fires after 3 failures within 60 seconds.
+    Level 10.
+  -->
+  <rule id="100040" level="10" frequency="3" timeframe="60">
+    <if_matched_sid>5402</if_matched_sid>
+    <description>Repeated sudo failures — possible privilege escalation attempt</description>
+    <mitre>
+      <id>T1548.003</id>
+    </mitre>
+  </rule>
+
+</group>
+
+
+<!-- ===========================================================
+     GROUP: PERSISTENCE DETECTION
+     Detects common persistence mechanisms on Linux and Windows.
+     MITRE: T1053 (Scheduled Task/Job)
+     =========================================================== -->
+<group name="persistence,syslog,">
+
+  <!--
+    New cron job added on a Linux agent.
+    Parent rule 5007: cron configuration changed.
+    Level 10 — cron is a frequent persistence mechanism.
+  -->
+  <rule id="100050" level="10">
+    <if_sid>5007</if_sid>
+    <description>New cron entry added — possible persistence mechanism</description>
+    <mitre>
+      <id>T1053.003</id>
+    </mitre>
+  </rule>
+
+</group>
+
+
+<!-- ===========================================================
+     GROUP: FILE INTEGRITY — CRITICAL PATHS
+     Raises alert level for FIM changes in especially sensitive paths.
+     MITRE: T1565 (Data Manipulation)
+             T1070 (Indicator Removal)
+     =========================================================== -->
+<group name="syscheck,fim,">
+
+  <!--
+    FIM change detected inside /etc/sudoers or /etc/sudoers.d
+    This is a critical privilege escalation enabler — level 14.
+  -->
+  <rule id="100060" level="14">
+    <if_sid>550</if_sid>
+    <field name="file">/etc/sudoers</field>
+    <description>FIM: Critical file modified — /etc/sudoers changed</description>
+    <mitre>
+      <id>T1548.003</id>
+    </mitre>
+  </rule>
+
+  <!--
+    FIM change detected on /etc/passwd or /etc/shadow.
+    Possible account manipulation.
+    Level 12.
+  -->
+  <rule id="100061" level="12">
+    <if_sid>550</if_sid>
+    <match>/etc/passwd|/etc/shadow</match>
+    <description>FIM: Account database file modified — possible account manipulation</description>
+    <mitre>
+      <id>T1136</id>
+    </mitre>
+  </rule>
+
+</group>
