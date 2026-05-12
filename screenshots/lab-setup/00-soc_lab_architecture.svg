@@ -1,0 +1,153 @@
+<svg width="100%" viewBox="0 0 680 640" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>SOC Detection Lab Architecture</title>
+  <desc>Five nodes on a VMware host-only network 192.168.172.0/24, showing traffic flow from attackers through Suricata IDS to Wazuh SIEM and dashboard</desc>
+
+  <!-- Solid background — ensures readability on LinkedIn in both light and dark mode -->
+  <rect width="680" height="640" fill="#111827" rx="18"/>
+
+  <defs>
+    <!-- Per-colour arrow markers (context-stroke not reliable in all SVG renderers) -->
+    <marker id="arr-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#D85A30" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arr-orange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#5BA4E0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arr-violet" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#8B7FE8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#C084FC" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#34D399" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <!-- ── Host machine container ── -->
+  <rect x="20" y="16" width="640" height="600" rx="14" fill="#444441" fill-opacity="0.18" stroke="#B4B2A9" stroke-width="0.6"/>
+  <text x="40" y="38" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#B4B2A9">Host machine — Ubuntu 24.04 LTS · VMware Workstation · 192.168.172.1</text>
+
+  <!-- ── VMware host-only network band ── -->
+  <rect x="40" y="276" width="600" height="50" rx="8" fill="#085041" fill-opacity="0.28" stroke="#5DCAA5" stroke-width="0.6"/>
+  <text x="340" y="295" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#9FE1CB">VMware host-only network — 192.168.172.0/24 (vmnet1) · DHCP disabled</text>
+  <text x="340" y="314" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#5DCAA5">All VM traffic flows through this isolated segment · Host adapter: 192.168.172.1</text>
+
+  <!-- ═══════════ VM CARDS ═══════════ -->
+
+  <!-- VM 1 · Kali Linux · .137 -->
+  <rect x="44"  y="58" width="138" height="196" rx="10" fill="#71280E" stroke="#F09978" stroke-width="0.6"/>
+  <text x="113" y="82"  text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#F5C4B3">Kali Linux</text>
+  <text x="113" y="99"  text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#F09978">Attacker</text>
+  <line x1="54"  y1="111" x2="172" y2="111" stroke="#F09978" stroke-width="0.5" stroke-opacity="0.4"/>
+  <text x="113" y="127" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#F09978">Nmap · Hydra</text>
+  <text x="113" y="144" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#F09978">Metasploit · Nikto</text>
+  <text x="113" y="161" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#F09978">SQLMap</text>
+  <line x1="54"  y1="176" x2="172" y2="176" stroke="#F09978" stroke-width="0.5" stroke-opacity="0.4"/>
+  <text x="113" y="193" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#FFB898">192.168.172.137</text>
+  <text x="113" y="210" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#F09978">Wazuh agent</text>
+  <text x="113" y="244" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#F09978">▼ .137</text>
+
+  <!-- VM 2 · Metasploitable3 Linux · .142 -->
+  <rect x="192" y="58" width="138" height="196" rx="10" fill="#633806" stroke="#EF9F27" stroke-width="0.6"/>
+  <text x="261" y="79"  text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#FAC775">Metasploitable3</text>
+  <text x="261" y="96"  text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="600" fill="#EF9F27">Linux</text>
+  <text x="261" y="112" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="10" fill="#EF9F27">Vulnerable target</text>
+  <line x1="202" y1="122" x2="320" y2="122" stroke="#EF9F27" stroke-width="0.5" stroke-opacity="0.4"/>
+  <text x="261" y="138" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#EF9F27">vsftpd · Apache</text>
+  <text x="261" y="155" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#EF9F27">SSH · MySQL</text>
+  <text x="261" y="172" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#EF9F27">DVWA · Telnet</text>
+  <line x1="202" y1="184" x2="320" y2="184" stroke="#EF9F27" stroke-width="0.5" stroke-opacity="0.4"/>
+  <text x="261" y="200" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#FFD264">192.168.172.142</text>
+  <text x="261" y="217" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#EF9F27">Wazuh agent</text>
+  <text x="261" y="244" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#EF9F27">▼ .142</text>
+
+  <!-- VM 3 · Windows 11 · .136 -->
+  <rect x="340" y="58" width="138" height="196" rx="10" fill="#0C447C" stroke="#85B7EB" stroke-width="0.6"/>
+  <text x="409" y="82"  text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#B5D4F4">Windows 11</text>
+  <text x="409" y="99"  text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#85B7EB">Enterprise endpoint</text>
+  <line x1="350" y1="111" x2="468" y2="111" stroke="#85B7EB" stroke-width="0.5" stroke-opacity="0.4"/>
+  <text x="409" y="127" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#85B7EB">Sysmon installed</text>
+  <text x="409" y="144" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#85B7EB">Event IDs: 4624</text>
+  <text x="409" y="161" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#85B7EB">4625 · 4720 · 4698</text>
+  <line x1="350" y1="176" x2="468" y2="176" stroke="#85B7EB" stroke-width="0.5" stroke-opacity="0.4"/>
+  <text x="409" y="193" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#A0D2FF">192.168.172.136</text>
+  <text x="409" y="210" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#85B7EB">Wazuh agent</text>
+  <text x="409" y="244" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#85B7EB">▼ .136</text>
+
+  <!-- VM 4 · Windows Server 2008 · .143 -->
+  <rect x="488" y="58" width="148" height="196" rx="10" fill="#3C0F5A" stroke="#C082F0" stroke-width="0.6"/>
+  <text x="562" y="79"  text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#DCB4FF">Windows Server</text>
+  <text x="562" y="96"  text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#DCB4FF">2008</text>
+  <text x="562" y="112" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="10" fill="#C082F0">Legacy target</text>
+  <line x1="498" y1="122" x2="626" y2="122" stroke="#C082F0" stroke-width="0.5" stroke-opacity="0.4"/>
+  <text x="562" y="138" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#C082F0">SMBv1 · EternalBlue</text>
+  <text x="562" y="155" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#C082F0">RDP · IIS 7.5</text>
+  <text x="562" y="172" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#C082F0">Unpatched</text>
+  <line x1="498" y1="184" x2="626" y2="184" stroke="#C082F0" stroke-width="0.5" stroke-opacity="0.4"/>
+  <text x="562" y="200" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#D2A0FF">192.168.172.143</text>
+  <text x="562" y="217" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#C082F0">Wazuh agent</text>
+  <text x="562" y="244" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#C082F0">▼ .143</text>
+
+  <!-- ══ Arrows: VMs down to network band ══ -->
+  <line x1="113" y1="254" x2="113" y2="274" stroke="#D85A30" stroke-width="1.6" marker-end="url(#arr-red)"/>
+  <line x1="261" y1="254" x2="261" y2="274" stroke="#EF9F27" stroke-width="1.6" marker-end="url(#arr-orange)"/>
+  <line x1="409" y1="254" x2="409" y2="274" stroke="#5BA4E0" stroke-width="1.6" marker-end="url(#arr-blue)"/>
+  <line x1="562" y1="254" x2="562" y2="274" stroke="#C084FC" stroke-width="1.6" marker-end="url(#arr-purple)"/>
+
+  <!-- ══ Arrow: network band → Suricata ══ -->
+  <line x1="340" y1="326" x2="340" y2="338" stroke="#8B7FE8" stroke-width="1.8" marker-end="url(#arr-violet)"/>
+
+  <!-- ── Suricata IDS box ── -->
+  <rect x="44" y="340" width="600" height="56" rx="8" fill="#3C3489" stroke="#AFA9EC" stroke-width="0.6"/>
+  <text x="205" y="362" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#CECBF6">Suricata 8.0.3 — Network IDS</text>
+  <text x="205" y="381" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#AFA9EC">Promiscuous mode on ens37 · eve.json → Wazuh</text>
+  <text x="498" y="362" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#CECBF6">51 custom rules</text>
+  <text x="498" y="381" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#AFA9EC">local.rules + ET Open ruleset</text>
+
+  <!-- ══ Arrow: Suricata → Wazuh ══ -->
+  <line x1="340" y1="396" x2="340" y2="410" stroke="#34D399" stroke-width="1.8" marker-end="url(#arr-green)"/>
+
+  <!-- ── Wazuh SIEM box ── -->
+  <rect x="44" y="412" width="600" height="164" rx="10" fill="#085041" stroke="#5DCAA5" stroke-width="0.6"/>
+  <text x="340" y="438" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#9FE1CB">Wazuh 4.14.5 — SIEM · 192.168.172.140</text>
+  <line x1="54" y1="452" x2="634" y2="452" stroke="#5DCAA5" stroke-width="0.5" stroke-opacity="0.4"/>
+
+  <!-- Manager panel -->
+  <rect x="62"  y="460" width="172" height="100" rx="6" fill="#085041" fill-opacity="0.3" stroke="#5DCAA5" stroke-width="0.5"/>
+  <text x="148" y="480" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#9FE1CB">Manager</text>
+  <text x="148" y="498" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#5DCAA5">Rule engine · decoders</text>
+  <text x="148" y="515" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#5DCAA5">Active response</text>
+  <text x="148" y="532" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#5DCAA5">Port 1514 / 1515</text>
+
+  <!-- Indexer panel -->
+  <rect x="254" y="460" width="172" height="100" rx="6" fill="#085041" fill-opacity="0.3" stroke="#5DCAA5" stroke-width="0.5"/>
+  <text x="340" y="480" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#9FE1CB">Indexer</text>
+  <text x="340" y="498" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#5DCAA5">OpenSearch cluster</text>
+  <text x="340" y="515" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#5DCAA5">Stores all alert data</text>
+  <text x="340" y="532" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#5DCAA5">Port 9200</text>
+
+  <!-- Dashboard panel -->
+  <rect x="446" y="460" width="172" height="100" rx="6" fill="#085041" fill-opacity="0.3" stroke="#5DCAA5" stroke-width="0.5"/>
+  <text x="532" y="480" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#9FE1CB">Dashboard</text>
+  <text x="532" y="498" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#5DCAA5">Security events view</text>
+  <text x="532" y="515" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#5DCAA5">Agent management</text>
+  <text x="532" y="532" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#5DCAA5">https://192.168.172.140</text>
+
+  <!-- ══ Dashed agent arrows: VMs → Wazuh Manager (direct log shipping) ══ -->
+  <path d="M113 254 Q 68 360 80 410"  fill="none" stroke="#D85A30" stroke-width="0.9" stroke-dasharray="4 3" marker-end="url(#arr-red)"    opacity="0.65"/>
+  <path d="M261 254 Q 230 390 185 412" fill="none" stroke="#EF9F27" stroke-width="0.9" stroke-dasharray="4 3" marker-end="url(#arr-orange)" opacity="0.65"/>
+  <path d="M409 254 Q 440 390 495 412" fill="none" stroke="#5BA4E0" stroke-width="0.9" stroke-dasharray="4 3" marker-end="url(#arr-blue)"   opacity="0.65"/>
+  <path d="M562 254 Q 620 365 618 412" fill="none" stroke="#C084FC" stroke-width="0.9" stroke-dasharray="4 3" marker-end="url(#arr-purple)" opacity="0.65"/>
+
+  <!-- ── Legend ── -->
+  <line x1="44"  y1="596" x2="66"  y2="596" stroke="#8B7FE8" stroke-width="1.6" marker-end="url(#arr-violet)"/>
+  <text x="72"  y="599" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#C2C0B6">Network traffic → Suricata</text>
+  <line x1="224" y1="596" x2="248" y2="596" stroke="#D85A30" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arr-red)"/>
+  <text x="254" y="599" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#C2C0B6">Agent logs → Wazuh manager</text>
+  <line x1="430" y1="596" x2="454" y2="596" stroke="#34D399" stroke-width="1.6" marker-end="url(#arr-green)"/>
+  <text x="460" y="599" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#C2C0B6">Suricata eve.json → Wazuh</text>
+</svg>
