@@ -48,13 +48,20 @@ Each VM needs:
 ### Verify Connectivity
 
 ```bash
+
 # From Wazuh VM — confirm all targets are reachable
 ping -c 3 <KALI_IP>
 ping -c 3 <METASPLOITABLE3_UBUNTU_IP>
 ping -c 3 <WINDOWS_11_IP>
 
+```
+
+
+```bash
+
 # Confirm Wazuh ports are listening
 sudo ss -tlnp | grep -E '1514|1515|9200|443'
+
 ```
 
 ---
@@ -77,6 +84,8 @@ mkdir -p ~/Desktop/wazuh && cd ~/Desktop/wazuh
 curl -sO https://packages.wazuh.com/4.x/wazuh-install.sh
 curl -sO https://packages.wazuh.com/4.x/config.yml
 ```
+![](../screenshots/lab-setup/01-wazuh-installer-sh-a.png)
+![](../screenshots/lab-setup/01-wazuh-installer-sh-b-version.png)
 
 ### Step 3 — Configure Node IPs
 
@@ -100,6 +109,8 @@ nodes:
 ```bash
 sudo bash wazuh-install.sh -a
 ```
+![](../screenshots/lab-setup/02-wazuh-dependencies.png)
+
 
 The installer will complete the following stages:
 1. Install dependencies and add Wazuh repository
@@ -118,13 +129,28 @@ sudo systemctl status wazuh-manager wazuh-indexer wazuh-dashboard filebeat
 
 All four must show `active (running)`.
 
+![](../screenshots/lab-setup/03-confirm-services-filebeat-status.png)
+
+![](../screenshots/lab-setup/03-confirm-services-wazuh-dashboard-status.png)
+
+![](../screenshots/lab-setup/03-confirm-services-wazuh-indexer-status.png) 
+
+![](../screenshots/lab-setup/03-confirm-services-wazuh-manager-status.png)
+
+
 ### Step 6 — Access Dashboard
 
 Navigate to `https://<WAZUH_IP>` in a browser.
 - Username: `admin`
 - Password: from installer output
 
+![](../screenshots/lab-setup/05-wazuh-dashboard.png)
+
+![](../screenshots/lab-setup/06-wazuh-dashboard-login-page.png)
+
 Confirm all health checks pass on the dashboard home screen.
+
+![](../screenshots/lab-setup/07-wazuh-dashboard-healthcheck.png)
 
 ---
 
@@ -143,6 +169,11 @@ sudo WAZUH_MANAGER='<WAZUH_IP>' \
      dpkg -i ./wazuh-agent_4.14.5-1_amd64.deb
 ```
 
+![](../screenshots/lab-setup/09-wazuh-agent-deployment-kali.png)
+
+![](../screenshots/lab-setup/09-wazuh-agent-deployment-kali-b.png)
+
+
 ### Step 2 — Start Agent
 
 ```bash
@@ -158,11 +189,17 @@ sudo tail -f /var/ossec/logs/ossec.log
 # Look for: INFO: (4102): Connected to the server ([<WAZUH_IP>]:1514/tcp)
 ```
 
+![](../screenshots/lab-setup/09-wazuh-agent-deployment-kali-c.png)
+
 ### Step 4 — Confirm on Manager
 
 ```bash
 sudo /var/ossec/bin/agent_control -la
 ```
+
+![](../screenshots/lab-setup/09-wazuh-agent-deployment-kali-d.png)
+
+
 
 ### Troubleshooting — Wrong Manager IP
 
