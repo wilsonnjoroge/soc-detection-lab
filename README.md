@@ -51,43 +51,8 @@ This lab demonstrates a realistic SOC (Security Operations Center) environment u
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          HOST MACHINE                               │
-│                    Ubuntu 24.04.4 LTS (VMware Workstation)          │
-│                         192.168.172.1                               │
-│                    [Wazuh Agent: host-ubuntu-agent]                 │
-└───────────────────────────────┬─────────────────────────────────────┘
-                                │  VMware Host-Only Network
-                                │  192.168.172.0/24
-          ┌─────────────────────┼──────────────────────────┐
-          │                     │                          │
-   ┌──────▼──────┐      ┌───────▼────────┐       ┌────────▼────────┐
-   │  ATTACKER   │      │   SIEM / IDS   │       │    TARGETS      │
-   │             │      │                │       │                 │
-   │ Kali Linux  │      │ Wazuh 4.14.5   │       │ Metasploitable3 │
-   │ 2026.1      │      │ Manager +      │       │ Ubuntu 14.04    │
-   │             │      │ Indexer +      │       │ 192.168.172.142 │
-   │ Nmap        │      │ Dashboard +    │       │                 │
-   │ Hydra       │      │ Filebeat       │       ├─────────────────┤
-   │ SQLMap      │      │                │       │  Windows 11 Pro │
-   │ Metasploit  │      │ Suricata IDS   │       │ 192.168.172.136 │
-   │             │      │ (eve.json)     │       │                 │
-   │.172.137     │      │  .172.140      │       ├─────────────────┤
-   └─────────────┘      └────────────────┘       │  Win Server2008 │
-                                │                │  IP: TBC        │
-                         ┌──────▼──────┐         │                 │
-                         │  Dashboard  │         └─────────────────┘
-                         │  :443/HTTPS │
-                         └─────────────┘
 
-Data Flows:
-  Wazuh Agents  ──► Manager (1514/TCP)
-  Suricata      ──► Wazuh via eve.json (local file monitor)
-  Manager       ──► OpenSearch Indexer (9200/TCP)
-  Browser       ──► Wazuh Dashboard (443/HTTPS)
-```
-
+![](screenshots/lab-setup/00-soc_lab_architecture.svg)
 ---
 
 ## Repo Structure
@@ -381,4 +346,4 @@ Cybersecurity and SOC Engineer
 
 ---
 
-*README v2.1 — Updated May 2026*
+*README v2.1 — Updated 12th May 2026*
