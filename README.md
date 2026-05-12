@@ -52,63 +52,9 @@ This lab demonstrates a realistic SOC (Security Operations Center) environment u
 ## Architecture
 
 
-![](screenshots/lab-setup/00-soc_lab_architecture.svg)
----
-
-## Repo Structure
-
-```
-soc-detection-lab/
-│
-├── README.md
-├── architecture/
-│   └── lab-diagram.png
-│
-├── screenshots/
-│   ├── wazuh/
-│   │   ├── dashboard-overview.png
-│   │   ├── agent-inventory.png
-│   │   └── alerts-view.png
-│   ├── suricata/
-│   │   ├── eve-json-logs.png
-│   │   └── alert-detection.png
-│   ├── attacks/
-│   │   ├── nmap-scan.png
-│   │   ├── ssh-bruteforce.png
-│   │   └── sqli-attack.png
-│   └── windows/
-│       └── event-logs.png
-│
-├── configs/
-│   ├── wazuh/
-│   │   ├── ossec.conf
-│   │   └── local_rules.xml
-│   ├── suricata/
-│   │   ├── suricata.yaml
-│   │   └── local.rules
-│   └── agents/
-│       ├── linux-agent.conf
-│       └── windows-agent.conf
-│
-├── detection-rules/
-│   ├── ssh-bruteforce.xml
-│   ├── nmap-detection.xml
-│   └── web-attacks.xml
-│
-├── attack-scenarios/
-│   ├── nmap.md
-│   ├── ssh-bruteforce.md
-│   └── dvwa-sqli.md
-│
-└── docs/
-    ├── setup-guide.md
-    ├── siem_lab_runbook.md
-    ├── siem_methodology_executive.md
-    └── detection-improvements.md
-```
+![](screenshots/lab-setup/00-soc_lab_architecture.svg)  
 
 ---
-
 ## Environment
 
 ### Host Machine
@@ -147,8 +93,8 @@ All VMs connect to a VMware Host-Only network (`192.168.172.0/24`). VMs requirin
 | Wazuh Indexer | ✅ Running | node01 |
 | Wazuh Dashboard | ✅ Running | https://192.168.172.140 |
 | Filebeat | ✅ Running | Shipping logs to indexer |
-| Suricata | ⬜ Pending | To be installed on Wazuh VM |
-| Suricata → Wazuh | ⬜ Pending | eve.json integration pending |
+| Suricata | ✅ Running | To be installed on Wazuh VM |
+| Suricata → Wazuh | ✅ Configured | eve.json integration pending |
 | Host agent | ✅ Active | Hypervisor monitoring enabled |
 | Kali agent | ✅ Active | Attacker endpoint monitored |
 | Metasploitable3 Ubuntu agent | ✅ Active | Linux target monitored |
@@ -159,7 +105,7 @@ All VMs connect to a VMware Host-Only network (`192.168.172.0/24`). VMs requirin
 
 ## [Setup](docs/setup-guide.md)
 
-Full installation and configuration instructions are in [`docs/setup-guide.md`](docs/setup-guide.md). It covers:
+Full installation and configuration instructions are in [`Lab Setup Guide`](docs/setup-guide.md). It covers:
 
 - **Wazuh all-in-one deployment** — Manager, Indexer, Dashboard, and Filebeat in a single automated install
 - **Linux agent deployment** — applies to Kali, Metasploitable3 Ubuntu, and the host machine
@@ -263,7 +209,7 @@ All attacks are executed from Kali Linux (`192.168.172.137`) against lab targets
 | Scheduled task persistence | cmd.exe | Windows 11 | 60145 |
 | Simulated malware file activity | Bash | Metasploitable3 Ubuntu | 550 / 92200 |
 
-> Full runbook with exact commands, raw log verification, and tuning guidance: [`docs/siem_lab_runbook.md`](docs/siem_lab_runbook.md)
+> Full runbook with exact commands, raw log verification, and tuning guidance: [`SIEM Lab Runbook`](docs/siem_lab_runbook.md)
 
 ---
 
@@ -322,6 +268,59 @@ All attacks are executed from Kali Linux (`192.168.172.137`) against lab targets
 | `screenshots/attacks/sqli-attack.png` | SQL injection detection |
 | `screenshots/windows/event-logs.png` | Windows Event Log ingestion |
 
+---
+
+## Repo Structure
+
+```
+soc-detection-lab/
+│
+├── README.md
+├── architecture/
+│   └── lab-diagram.png
+│
+├── screenshots/
+│   ├── wazuh/
+│   │   ├── dashboard-overview.png
+│   │   ├── agent-inventory.png
+│   │   └── alerts-view.png
+│   ├── suricata/
+│   │   ├── eve-json-logs.png
+│   │   └── alert-detection.png
+│   ├── attacks/
+│   │   ├── nmap-scan.png
+│   │   ├── ssh-bruteforce.png
+│   │   └── sqli-attack.png
+│   └── windows/
+│       └── event-logs.png
+│
+├── configs/
+│   ├── wazuh/
+│   │   ├── ossec.conf
+│   │   └── local_rules.xml
+│   ├── suricata/
+│   │   ├── suricata.yaml
+│   │   └── local.rules
+│   └── agents/
+│       ├── linux-agent.conf
+│       └── windows-agent.conf
+│
+├── detection-rules/
+│   ├── ssh-bruteforce.xml
+│   ├── nmap-detection.xml
+│   └── web-attacks.xml
+│
+├── attack-scenarios/
+│   ├── nmap.md
+│   ├── ssh-bruteforce.md
+│   └── dvwa-sqli.md
+│
+└── docs/
+    ├── setup-guide.md
+    ├── siem_lab_runbook.md
+    ├── siem_methodology_executive.md
+    └── detection-improvements.md
+```
 ---
 
 ## References
