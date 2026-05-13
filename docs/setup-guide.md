@@ -53,8 +53,17 @@ Each VM needs:
 ping -c 3 <KALI_IP>
 ping -c 3 <METASPLOITABLE3_UBUNTU_IP>
 ping -c 3 <WINDOWS_11_IP>
+ping -c 3 <WINDOWS_SERVER_2008_IP>
 
 ```
+
+![](../screenshots/lab-setup/10-ping-a-kali.png)
+
+![](../screenshots/lab-setup/10-ping-b-metasploitable-3-ubuntu.png)
+
+![](../screenshots/lab-setup/10-ping-c-windows11.png)
+
+![](../screenshots/lab-setup/10-ping-d-metasploitable3-windows-server-2008.png)
 
 
 ```bash
@@ -63,6 +72,7 @@ ping -c 3 <WINDOWS_11_IP>
 sudo ss -tlnp | grep -E '1514|1515|9200|443'
 
 ```
+![](../screenshots/lab-setup/11-ports-open.png)
 
 ---
 
@@ -266,12 +276,21 @@ sudo apt update
 sudo apt install suricata -y
 suricata -V
 ```
+![](../screenshots/lab-setup/01-suricata-installation.png)
+
+![](../screenshots/lab-setup/02-suricata-version.png)
+
 
 ### Step 2 — Update Rules
 
 ```bash
 sudo suricata-update
 ```
+
+![](../screenshots/lab-setup/03-suricata-rule-update-a.png)
+
+![](../screenshots/lab-setup/03-suricata-rule-update-b.png)
+
 
 ### Step 3 — Identify Monitoring Interface
 
@@ -336,6 +355,10 @@ sudo mkdir -p /var/log/suricata
 sudo chown root:root /var/log/suricata
 sudo chmod -R 755 /var/log/suricata
 ```
+![](../screenshots/lab-setup/suricata-configuration-check.png)
+
+![](../screenshots/lab-setup/suricata-running-status.png)
+
 
 ### Step 6 — Verify Traffic Capture
 
@@ -353,6 +376,8 @@ sudo chmod a+rw /dev/vmnet1 # Allow promisc on OS level (Hypervisor)
 ip link show ens37
 
 ```
+
+![](../screenshots/lab-setup/suricata-eve-json-sample.png)
 
 Generate test traffic from another VM — events should appear within seconds.
 
