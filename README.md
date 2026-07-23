@@ -1,4 +1,4 @@
-# 🛡️ SOC Detection Lab — Wazuh + Suricata + Kali Linux
+# 🛡️ SOC Detection Lab: Wazuh + Suricata + Kali Linux
 
 > A virtualized cybersecurity home lab simulating a SOC environment with SIEM deployment, network intrusion detection, host-based monitoring, and attack simulation. Built for practical detection engineering and portfolio demonstration.
 
@@ -28,7 +28,7 @@
 
 ## Lab Overview
 
-This lab demonstrates a realistic SOC (Security Operations Center) environment using open-source tooling. It covers the full detection engineering lifecycle — from deploying a SIEM and configuring log ingestion, to simulating real attacks and validating alert generation.
+This lab demonstrates a realistic SOC (Security Operations Center) environment using open-source tooling. It covers the full detection engineering lifecycle: from deploying a SIEM and configuring log ingestion, to simulating real attacks and validating alert generation.
 
 | Capability | Tool |
 |---|---|
@@ -36,8 +36,8 @@ This lab demonstrates a realistic SOC (Security Operations Center) environment u
 | Network IDS | Suricata |
 | Host Monitoring | Wazuh Agents (Linux + Windows) |
 | Attacker | Kali Linux 2026.1 |
-| Target — Linux | Metasploitable3 Ubuntu (Ubuntu 14.04) |
-| Target — Windows | Windows 11 Pro + Windows Server 2008 |
+| Target: Linux | Metasploitable3 Ubuntu (Ubuntu 14.04) |
+| Target: Windows | Windows 11 Pro + Windows Server 2008 |
 | Hypervisor Monitoring | Host Ubuntu 24.04.4 LTS (agent installed) |
 
 **Key objectives:**
@@ -73,15 +73,15 @@ This lab demonstrates a realistic SOC (Security Operations Center) environment u
 | 000 | wazuh-siem (server) | 192.168.172.140 | Ubuntu 26.04 LTS | Wazuh Manager + Indexer + Dashboard + Filebeat | Active/Local |
 | 005 | host-ubuntu-agent | 192.168.172.1 | Ubuntu 24.04.4 LTS | Host hypervisor monitoring | ✅ Active |
 | 006 | kali-agent | 192.168.172.137 | Kali GNU/Linux 2026.1 | Attacker | ✅ Active |
-| 009 | metasploitable3-ubuntu-agent | 192.168.172.142 | Ubuntu 14.04 Trusty Tahr | Target — Linux | ✅ Active |
-| 011 | windows-11-agent | 192.168.172.136 | Windows 11 Pro 10.0.22621.4317 | Target — Windows | ✅ Active |
-| TBC | metasploitable3-winserver2008 | TBC | Windows Server 2008 | Target — Windows Server | ⬜ Agent pending |
+| 009 | metasploitable3-ubuntu-agent | 192.168.172.142 | Ubuntu 14.04 Trusty Tahr | Target: Linux | ✅ Active |
+| 011 | windows-11-agent | 192.168.172.136 | Windows 11 Pro 10.0.22621.4317 | Target: Windows | ✅ Active |
+| TBC | metasploitable3-winserver2008 | TBC | Windows Server 2008 | Target: Windows Server | ⬜ Agent pending |
 
 ### Network
 
 All VMs connect to a VMware Host-Only network (`192.168.172.0/24`). VMs requiring internet access for package downloads use an additional NAT adapter. Each VM has:
 - **Adapter 1:** VMware Host-Only (lab traffic)
-- **Adapter 2:** NAT (internet — package downloads only, where needed)
+- **Adapter 2:** NAT (internet: package downloads only, where needed)
 
 ---
 
@@ -107,21 +107,21 @@ All VMs connect to a VMware Host-Only network (`192.168.172.0/24`). VMs requirin
 
 Full installation and configuration instructions are in [`Lab Setup Guide`](docs/setup-guide.md). It covers:
 
-- **Wazuh all-in-one deployment** — Manager, Indexer, Dashboard, and Filebeat in a single automated install
-- **Linux agent deployment** — applies to Kali, Metasploitable3 Ubuntu, and the host machine
-- **Windows agent deployment** — PowerShell and GUI installer options for Windows 11 and Server 2008
-- **Suricata installation and configuration** — interface setup, HOME_NET, eve.json output
-- **Suricata → Wazuh integration** — localfile config, file permissions, verification
-- **Log collection configuration** — agent groups for Linux (`auth.log`, `syslog`, Apache) and Windows (Security, System, Sysmon)
-- **Custom detection rules** — Nmap HTTP detection, SSH brute force threshold, command injection patterns, Suricata local rules
-- **Detection improvements** — false positive suppression, active response auto-blocking
-- **Troubleshooting** — agent connectivity, log ingestion, Suricata traffic capture, dashboard health
+- **Wazuh all-in-one deployment**: Manager, Indexer, Dashboard, and Filebeat in a single automated install
+- **Linux agent deployment**: applies to Kali, Metasploitable3 Ubuntu, and the host machine
+- **Windows agent deployment**: PowerShell and GUI installer options for Windows 11 and Server 2008
+- **Suricata installation and configuration**: interface setup, HOME_NET, eve.json output
+- **Suricata → Wazuh integration**: localfile config, file permissions, verification
+- **Log collection configuration**: agent groups for Linux (`auth.log`, `syslog`, Apache) and Windows (Security, System, Sysmon)
+- **Custom detection rules**: Nmap HTTP detection, SSH brute force threshold, command injection patterns, Suricata local rules
+- **Detection improvements**: false positive suppression, active response auto-blocking
+- **Troubleshooting**: agent connectivity, log ingestion, Suricata traffic capture, dashboard health
 
 ---
 
 ## Testing Methodology
 
-Detection coverage is validated across five telemetry domains, every test mapped to a log source, expected alert, and measurable outcome. The goal is not to "run attacks" — it is to **prove that the SIEM sees what it should see**.
+Detection coverage is validated across five telemetry domains, every test mapped to a log source, expected alert, and measurable outcome. The goal is not to "run attacks": it is to **prove that the SIEM sees what it should see**.
 
 ### Telemetry Domains
 
@@ -138,19 +138,19 @@ Detection coverage is validated across five telemetry domains, every test mapped
 Every test must complete all five steps. Partial validation is not coverage.
 
 ```
-STEP 1 — Generate the event
+STEP 1: Generate the event
          Execute the action on the target VM
 
-STEP 2 — Confirm raw log
+STEP 2: Confirm raw log
          Verify the log exists at the source (auth.log, Event Viewer, syslog)
 
-STEP 3 — Confirm ingestion
+STEP 3: Confirm ingestion
          Wazuh Dashboard → Discover → search for the agent + event
 
-STEP 4 — Confirm rule match
+STEP 4: Confirm rule match
          Check: alert level fired · rule ID triggered · decoder matched
 
-STEP 5 — Tune if missing
+STEP 5: Tune if missing
          Enable log collector · adjust decoder · verify rule is active
 ```
 
@@ -158,10 +158,10 @@ STEP 5 — Tune if missing
 
 | Phase | Focus | Objective |
 |---|---|---|
-| **Phase 1 — Visibility** | SSH failures, RDP failures, basic log flow | Confirm log ingestion from all agents |
-| **Phase 2 — Attack Patterns** | Hydra brute force, nmap scans | Validate pattern-based detection |
-| **Phase 3 — System Compromise** | User creation, privilege escalation, FIM | Validate endpoint detection depth |
-| **Phase 4 — Advanced Behavior** | Metasploit exploits, persistence simulation | Validate behavioral/heuristic rules |
+| **Phase 1: Visibility** | SSH failures, RDP failures, basic log flow | Confirm log ingestion from all agents |
+| **Phase 2: Attack Patterns** | Hydra brute force, nmap scans | Validate pattern-based detection |
+| **Phase 3: System Compromise** | User creation, privilege escalation, FIM | Validate endpoint detection depth |
+| **Phase 4: Advanced Behavior** | Metasploit exploits, persistence simulation | Validate behavioral/heuristic rules |
 
 For exact commands, raw log verification steps, and per-phase tuning guidance, see the [operational runbook](docs/siem_lab_runbook.md).
 
@@ -171,7 +171,7 @@ For exact commands, raw log verification steps, and per-phase tuning guidance, s
 
 All attacks are executed from Kali Linux (`192.168.172.137`) against lab targets.
 
-### Phase 1 — Visibility Checks
+### Phase 1: Visibility Checks
 
 | Test | Target | Purpose |
 |---|---|---|
@@ -179,7 +179,7 @@ All attacks are executed from Kali Linux (`192.168.172.137`) against lab targets
 | SSH failed login (single) | Metasploitable3 Ubuntu | Validate auth log ingestion |
 | RDP failed login | Windows 11 | Validate Windows Event Log ingestion |
 
-### Phase 2 — Attack Patterns
+### Phase 2: Attack Patterns
 
 | Attack | Tool | Target | Wazuh Rule |
 |---|---|---|---|
@@ -188,7 +188,7 @@ All attacks are executed from Kali Linux (`192.168.172.137`) against lab targets
 | Network port scan | Nmap | All targets | 40101 |
 | Web vulnerability scan | Nikto | Metasploitable3 Ubuntu | 31151 |
 
-### Phase 3 — System Compromise Simulation
+### Phase 3: System Compromise Simulation
 
 | Attack | Target | Wazuh Rule |
 |---|---|---|
@@ -196,10 +196,10 @@ All attacks are executed from Kali Linux (`192.168.172.137`) against lab targets
 | Add user to Administrators | Windows 11 | 60146 |
 | Successful login after failures | Windows 11 | 60109 |
 | Sudo privilege escalation | Metasploitable3 Ubuntu | 5401 / 5403 |
-| File Integrity Monitoring — Linux | Metasploitable3 Ubuntu | 550 / 553 / 554 |
-| File Integrity Monitoring — Windows | Windows 11 | 550 / 553 / 554 |
+| File Integrity Monitoring: Linux | Metasploitable3 Ubuntu | 550 / 553 / 554 |
+| File Integrity Monitoring: Windows | Windows 11 | 550 / 553 / 554 |
 
-### Phase 4 — Advanced Behavior
+### Phase 4: Advanced Behavior
 
 | Attack | Tool | Target | Wazuh Rule |
 |---|---|---|---|
@@ -226,7 +226,7 @@ All attacks are executed from Kali Linux (`192.168.172.137`) against lab targets
 | New user created | Windows Security | 60145 | 8 | T1136 |
 | Privilege escalation | Windows Security | 60146 | 8 | T1548 |
 | Sudo abuse | auth.log | 5403 | 3 | T1548 |
-| FIM — file change | Wazuh FIM | 550 | 7 | T1565 |
+| FIM: file change | Wazuh FIM | 550 | 7 | T1565 |
 | vsftpd exploit | vsftpd.log | 5712 | 10 | T1190 |
 | Reverse shell | syslog | 92200 | 10 | T1059 |
 | Cron persistence | syslog | 5007 | 7 | T1053.003 |
@@ -244,8 +244,8 @@ All attacks are executed from Kali Linux (`192.168.172.137`) against lab targets
 | Credential Access | T1110 | Brute Force | Hydra (SSH + RDP) |
 | Initial Access | T1190 | Exploit Public-Facing Application | Metasploit vsftpd |
 | Execution | T1059 | Command and Scripting Interpreter | Netcat reverse shell |
-| Persistence | T1053.003 | Scheduled Task — Cron | Manual crontab |
-| Persistence | T1053.005 | Scheduled Task — Windows | schtasks.exe |
+| Persistence | T1053.003 | Scheduled Task: Cron | Manual crontab |
+| Persistence | T1053.005 | Scheduled Task: Windows | schtasks.exe |
 | Persistence | T1136 | Create Account | net user |
 | Privilege Escalation | T1548 | Abuse Elevation Control | sudo / net localgroup |
 | Defense Evasion | T1027 | Obfuscated Files | base64 encoding |
@@ -345,4 +345,4 @@ Cybersecurity and SOC Engineer
 
 ---
 
-*README v2.1 — Updated 12th May 2026*
+*README v2.1: Updated 12th May 2026*
